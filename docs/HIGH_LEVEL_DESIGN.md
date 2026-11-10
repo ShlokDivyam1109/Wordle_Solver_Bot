@@ -585,3 +585,4 @@ flowchart LR
 
 > [!IMPORTANT]
 > This is the **initial high-level design**. Detailed implementation decisions (e.g., exact C++ interface, OCT-H hyperparameters, dashboard component specs) will be documented in `docs/IMPLEMENTATION_NOTES.md` as development progresses.
+
