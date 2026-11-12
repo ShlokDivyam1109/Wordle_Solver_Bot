@@ -1,0 +1,161 @@
+{
+  "exact_dp": {
+    "name": "Exact Dynamic Programming (Bertsimas & Paskov - MIT)",
+    "first_guess": "SALET",
+    "avg_guesses": 3.4285,
+    "max_guesses": 5,
+    "min_guesses": 2,
+    "win_rate": 100.0,
+    "win_in_5_rate": 100.0,
+    "distribution": {
+      "3": 1234,
+      "4": 891,
+      "2": 93,
+      "5": 97
+    },
+    "total_time_seconds": 0.0,
+    "avg_time_per_word_ms": 0.0,
+    "optimality_certified": true
+  },
+  "entropy_greedy": {
+    "name": "Information Theory (Shannon Entropy) Greedy",
+    "first_guess": "SOARE",
+    "avg_guesses": 3.23,
+    "max_guesses": 5,
+    "win_rate": 100.0,
+    "distribution": {
+      "3": 72,
+      "4": 24,
+      "2": 3,
+      "5": 1
+    },
+    "avg_time_per_word_ms": 85.22,
+    "optimality_certified": false
+  },
+  "two_step_greedy": {
+    "name": "2-Step Lookahead Greedy (WordleBot Style)",
+    "first_guess": "CRANE",
+    "avg_guesses": 3.25,
+    "max_guesses": 5,
+    "win_rate": 100.0,
+    "distribution": {
+      "3": 60,
+      "4": 31,
+      "2": 8,
+      "5": 1
+    },
+    "avg_time_per_word_ms": 11.23,
+    "optimality_certified": false
+  },
+  "max_partitions": {
+    "name": "Max Partitions Greedy",
+    "first_guess": "TRACE",
+    "avg_guesses": 3.39,
+    "max_guesses": 5,
+    "win_rate": 100.0,
+    "distribution": {
+      "3": 57,
+      "4": 38,
+      "2": 3,
+      "5": 2
+    },
+    "avg_time_per_word_ms": 81.61,
+    "optimality_certified": false
+  },
+  "random": {
+    "name": "Random Candidate Guessing",
+    "first_guess": "RANDOM",
+    "avg_guesses": 3.94,
+    "max_guesses": 7,
+    "win_rate": 99.5,
+    "distribution": {
+      "2": 10,
+      "4": 82,
+      "3": 57,
+      "5": 38,
+      "6": 12,
+      "7": 1
+    },
+    "optimality_certified": false
+  },
+  "sensitivity_analysis": {
+    "baseline_optimal": 3.421,
+    "simulations_per_level": 25,
+    "levels": [
+      {
+        "perturbation_percent": 0.1,
+        "median_expected_guesses": 3.4338,
+        "min_expected_guesses": 3.431,
+        "max_expected_guesses": 3.4358,
+        "certainty_risk_pct": 0.0
+      },
+      {
+        "perturbation_percent": 0.5,
+        "median_expected_guesses": 3.4664,
+        "min_expected_guesses": 3.4527,
+        "max_expected_guesses": 3.4804,
+        "certainty_risk_pct": 0.2
+      },
+      {
+        "perturbation_percent": 1.0,
+        "median_expected_guesses": 3.4988,
+        "min_expected_guesses": 3.4661,
+        "max_expected_guesses": 3.5236,
+        "certainty_risk_pct": 0.4
+      },
+      {
+        "perturbation_percent": 2.0,
+        "median_expected_guesses": 3.5323,
+        "min_expected_guesses": 3.4852,
+        "max_expected_guesses": 3.5892,
+        "certainty_risk_pct": 1.0
+      },
+      {
+        "perturbation_percent": 5.0,
+        "median_expected_guesses": 3.6165,
+        "min_expected_guesses": 3.4791,
+        "max_expected_guesses": 3.7488,
+        "certainty_risk_pct": 3.2
+      },
+      {
+        "perturbation_percent": 10.0,
+        "median_expected_guesses": 3.7071,
+        "min_expected_guesses": 3.431,
+        "max_expected_guesses": 3.9832,
+        "certainty_risk_pct": 8.0
+      }
+    ]
+  },
+  "top_starting_words": [
+    {
+      "rank": 1,
+      "word": "SALET",
+      "expected_guesses": 3.42117,
+      "guaranteed_max": 5
+    },
+    {
+      "rank": 2,
+      "word": "REAST",
+      "expected_guesses": 3.42246,
+      "guaranteed_max": 5
+    },
+    {
+      "rank": 3,
+      "word": "TRACE",
+      "expected_guesses": 3.42376,
+      "guaranteed_max": 5
+    },
+    {
+      "rank": 4,
+      "word": "CRATE",
+      "expected_guesses": 3.42376,
+      "guaranteed_max": 5
+    },
+    {
+      "rank": 5,
+      "word": "SLATE",
+      "expected_guesses": 3.42462,
+      "guaranteed_max": 5
+    }
+  ]
+}
