@@ -897,4 +897,84 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 </html>
 """
 
+class RequestHandler(BaseHTTPRequestHandler):
+    def log_message(self, format, *args):
+        # Quiet down console logs
+        pass
+
+    def do_GET(self):
+        parsed = urllib.parse.urlparse(self.path)
+        path = parsed.path
+        query = urllib.parse.parse_qs(parsed.query)
+
+        if path == '/' or path == '/index.html':
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/html; charset=utf-8')
+            self.end_headers()
+            self.wfile.write(HTML_TEMPLATE.encode('utf-8'))
+
+        elif path == '/api/simulate':
+            secret = query.get('secret', ['VIXEN'])[0].strip().lower()
+            solver_type = query.get('solver', ['exact_dp'])[0].strip().lower()
+
+            try:
+                steps = solver_instance.simulate_step_by_step(secret, solver_type)
+                res = {'status': 'ok', 'secret': secret, 'steps': steps}
+            except Exception as e:
+                res = {'status': 'error', 'message': str(e)}
+
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps(res).encode('utf-8'))
+
+        elif path == '/api/tree':
+            coloring = query.get('coloring', ['XXXXX'])[0].strip().upper()
+            try:
+                path_data = tree_policy.trace_path(coloring)
+                res = {'status': 'ok', 'coloring': coloring, 'path': path_data}
+            except Exception as e:
+                res = {'status': 'error', 'message': str(e)}
+
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps(res).encode('utf-8'))
+
+        elif path == '/api/random':
+            import random
+            word = random.choice(solver_instance.solutions)
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({'word': word}).encode('utf-8'))
+
+        elif path == '/api/benchmarks':
+            global benchmark_cache
+            if not benchmark_cache and os.path.exists(BENCHMARK_PATH):
+                with open(BENCHMARK_PATH, 'r', encoding='utf-8') as f:
+                    benchmark_cache = json.load(f)
+
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps(benchmark_cache or {}).encode('utf-8'))
+
+        else:
+            self.send_response(404)
+            self.end_headers()
+
+
+def start_server():
+    server = HTTPServer(('127.0.0.1', PORT), RequestHandler)
+    print(f'Wordle Solver Animated UI running at http://localhost:{PORT}')
+    print('Press Ctrl+C to stop.')
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print('\nServer stopped.')
+
+
+if __name__ == '__main__':
+    start_server()
 
