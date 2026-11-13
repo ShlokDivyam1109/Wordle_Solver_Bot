@@ -33,8 +33,22 @@ class handler(BaseHTTPRequestHandler):
         path = parsed.path
         query = urllib.parse.parse_qs(parsed.query)
 
+        # Detect the requested route from all sources:
+        # 1. query parameter (__route__ from vercel rewrite)
+        # 2. x-matched-path header (from Vercel proxy)
+        # 3. x-forwarded-uri header
+        # 4. parsed.path or self.path
+        matched_path = self.headers.get('x-matched-path') or self.headers.get('x-forwarded-uri') or ''
+        route_query = query.get('__route__', [''])[0]
+        full_target = f"{path} {matched_path} {route_query} {self.path}".lower()
+
+        # If query params were passed in matched_path (e.g. ?secret=...&solver=...)
+        if 'secret' not in query and '?' in matched_path:
+            extra_query = urllib.parse.parse_qs(matched_path.split('?', 1)[1])
+            query.update(extra_query)
+
         # 1. Serve frontend HTML
-        if path == '/' or path == '/index.html':
+        if path in ('/', '/index.html') or matched_path in ('/', '/index.html'):
             html_path = os.path.join(ROOT_DIR, 'index.html')
             if not os.path.exists(html_path):
                 html_path = os.path.join(ROOT_DIR, 'frontend', 'index.html')
@@ -48,7 +62,7 @@ class handler(BaseHTTPRequestHandler):
             return
 
         # 2. Serve CSS
-        elif path.endswith('.css'):
+        if path.endswith('.css') or matched_path.endswith('.css'):
             css_path = os.path.join(ROOT_DIR, 'frontend', 'style.css')
             with open(css_path, 'rb') as f:
                 content = f.read()
@@ -60,7 +74,7 @@ class handler(BaseHTTPRequestHandler):
             return
 
         # 3. Serve JS
-        elif path.endswith('.js') and not path.startswith('/api'):
+        if (path.endswith('.js') or matched_path.endswith('.js')) and not ('api' in path and not path.endswith('.js')):
             js_path = os.path.join(ROOT_DIR, 'frontend', 'app.js')
             with open(js_path, 'rb') as f:
                 content = f.read()
@@ -71,16 +85,17 @@ class handler(BaseHTTPRequestHandler):
             self.wfile.write(content)
             return
 
-        elif path == '/favicon.ico':
+        # 4. Favicon
+        if path == '/favicon.ico' or matched_path == '/favicon.ico':
             self.send_response(204)
             self.end_headers()
             return
 
-        # 4. API Endpoints
-        elif 'simulate' in path:
+        # 5. API Endpoints
+        status_code = 200
+        if 'simulate' in full_target:
             secret = query.get('secret', ['CIGAR'])[0].strip().lower()
             solver_type = query.get('solver', ['exact_dp'])[0].strip().lower()
-
             try:
                 steps = solver_instance.simulate_step_by_step(secret, solver_type)
                 comparison = solver_instance.compare_all_solvers(secret)
@@ -91,28 +106,31 @@ class handler(BaseHTTPRequestHandler):
                     'comparison': comparison
                 }
             except Exception as e:
+                status_code = 500
                 res = {'status': 'error', 'message': str(e)}
 
-        elif 'random' in path:
+        elif 'random' in full_target:
             word = random.choice(solver_instance.solutions)
             res = {'word': word}
 
-        elif 'compare' in path:
+        elif 'compare' in full_target:
             secret = query.get('secret', ['CIGAR'])[0].strip().lower()
             try:
                 comparison = solver_instance.compare_all_solvers(secret)
                 res = {'status': 'ok', 'secret': secret, 'comparison': comparison}
             except Exception as e:
+                status_code = 500
                 res = {'status': 'error', 'message': str(e)}
 
-        elif 'benchmarks' in path:
+        elif 'benchmarks' in full_target:
             res = benchmark_cache or {}
 
         else:
-            res = {'status': 'ok', 'message': 'Wordle Solver API is ready'}
+            status_code = 404
+            res = {'status': 'error', 'message': f'Not found: {path}'}
 
         body = json.dumps(res).encode('utf-8')
-        self.send_response(200)
+        self.send_response(status_code)
         self.send_header('Content-Type', 'application/json')
         self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Content-Length', str(len(body)))
