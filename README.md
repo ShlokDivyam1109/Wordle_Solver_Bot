@@ -33,6 +33,16 @@ See [`docs/HIGH_LEVEL_DESIGN.md`](docs/HIGH_LEVEL_DESIGN.md) for the full high-l
 
 https://wordle-ai-project.vercel.app/
 
+## Team Members
+
+| Name | Roll Number |
+|---|---|
+| Kadali Gagan Venkata Asish | B24EE025 |
+| Krishal Sukdeve | B24EE030 |
+| Madan Vishwakarma | B24DS504 |
+| Pulak Kumar Sarkar | B24DS505 |
+| Shlok Divyam | B24CS042 |
+
 ## License
 
 TBD
