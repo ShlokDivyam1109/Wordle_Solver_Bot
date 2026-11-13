@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wordle AI Solver — Dynamic Programming & Heuristics</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="frontend/style.css">
+</head>
+<body class="min-h-screen flex flex-col bg-[#0f1117] text-[#e2e8f0]">
+
+  <!-- Header -->
+  <header class="border-b border-slate-800 bg-[#141824]/90 backdrop-blur sticky top-0 z-50 px-6 py-3.5">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-lg bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 font-black text-xl mono shadow-lg shadow-emerald-950/40">
+          W
+        </div>
+        <div>
+          <h1 class="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+            Wordle AI Solver
+            <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Optimal Engine</span>
+          </h1>
+        </div>
+      </div>
+
+      <!-- Main Navigation Tabs -->
+      <div class="flex items-center space-x-2 bg-slate-900/90 p-1 rounded-lg border border-slate-800">
+        <button id="tab-sim-btn" onclick="switchTab('sim')" class="px-3.5 py-1.5 rounded-md text-xs font-semibold transition bg-emerald-600 text-white shadow flex items-center gap-2">
+          <i class="fa-solid fa-gamepad"></i> Solver Simulation
+        </button>
+        <button id="tab-comp-btn" onclick="switchTab('comp')" class="px-3.5 py-1.5 rounded-md text-xs font-semibold transition text-slate-400 hover:text-white flex items-center gap-2">
+          <i class="fa-solid fa-chart-simple"></i> Algorithm Comparison
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-6 space-y-6">
+
+    <!-- VIEW 1: SOLVER SIMULATION -->
+    <div id="view-sim" class="space-y-6">
+      
+      <!-- Top Control Bar -->
+      <div class="bg-[#141824] border border-slate-800 rounded-xl p-4 shadow-lg flex flex-wrap items-center justify-between gap-4">
+        
+        <!-- Target Word Selection -->
+        <div class="flex flex-wrap items-center gap-3">
+          <div class="flex items-center space-x-2">
+            <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Hidden Word:</label>
+            <div class="relative">
+              <input id="target-word-input" type="text" maxlength="5" value="CIGAR" 
+                     class="w-28 px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-sm font-bold text-center tracking-widest uppercase text-emerald-400 focus:outline-none focus:border-emerald-500 mono"
+                     onkeyup="if(event.key==='Enter') applyCustomWord()">
+              <button onclick="applyCustomWord()" class="absolute right-1 top-1.5 text-slate-400 hover:text-white px-1.5 text-xs" title="Apply Word">
+                <i class="fa-solid fa-arrow-right"></i>
+              </button>
+            </div>
+          </div>
+
+          <button onclick="pickRandomWord()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs font-medium text-slate-200 transition flex items-center gap-1.5 shadow-sm">
+            <i class="fa-solid fa-shuffle text-emerald-400"></i> Random Word
+          </button>
+
+          <!-- Quick Test Words -->
+          <div class="flex items-center space-x-1.5 pl-2 border-l border-slate-800">
+            <span class="text-xs text-slate-500 mr-1">Presets:</span>
+            <button onclick="setWord('CIGAR')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-xs font-mono font-semibold">CIGAR</button>
+            <button onclick="setWord('LIGHT')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-xs font-mono font-semibold">LIGHT</button>
+            <button onclick="setWord('VIXEN')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-xs font-mono font-semibold">VIXEN</button>
+            <button onclick="setWord('JIFFY')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-xs font-mono font-semibold">JIFFY</button>
+            <button onclick="setWord('FOCAL')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-xs font-mono font-semibold">FOCAL</button>
+          </div>
+        </div>
+
+        <!-- Algorithm Selector -->
+        <div class="flex items-center space-x-3">
+          <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Algorithm:</label>
+          <select id="solver-select" onchange="fetchSimulation()" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs font-medium text-white focus:outline-none focus:border-emerald-500">
+            <option value="exact_dp" selected>Exact Dynamic Programming (SALET)</option>
+            <option value="entropy">Shannon Entropy Greedy (SOARE)</option>
+            <option value="two_step">2-Step Lookahead (CRANE)</option>
+            <option value="max_partitions">Max Partitions Greedy (TRACE)</option>
+            <option value="random">Random Candidate Selection</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Main Layout: Board & Controls (Left) + Backend Engine Inspector (Right) -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- Left: Wordle Board & Animation Controls (5 cols) -->
+        <div class="lg:col-span-5 space-y-4">
+          <div class="bg-[#141824] border border-slate-800 rounded-xl p-6 shadow-xl flex flex-col items-center justify-center">
+            
+            <!-- 6x5 Wordle Board -->
+            <div id="board" class="grid grid-rows-6 gap-2 w-72 h-84 mb-6">
+              <!-- Rendered via JS -->
+            </div>
+
+            <!-- Playback Controls -->
+            <div class="w-full bg-slate-900/90 rounded-xl p-3 border border-slate-800 space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-medium text-slate-400" id="step-indicator">Step 0 / 0</span>
+                <span id="win-badge" class="hidden px-2.5 py-0.5 rounded text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
+                  <i class="fa-solid fa-trophy mr-1"></i> Solved in <span id="win-turn">4</span> guesses
+                </span>
+              </div>
+
+              <div class="flex items-center justify-center space-x-3">
+                <button onclick="prevStep()" class="w-9 h-9 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition" title="Previous Step">
+                  <i class="fa-solid fa-backward-step"></i>
+                </button>
+                <button id="play-pause-btn" onclick="togglePlay()" class="w-12 h-12 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center text-lg shadow-lg shadow-emerald-900/30 transition" title="Play / Pause">
+                  <i id="play-icon" class="fa-solid fa-play"></i>
+                </button>
+                <button onclick="nextStep()" class="w-9 h-9 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition" title="Next Step">
+                  <i class="fa-solid fa-forward-step"></i>
+                </button>
+                <button onclick="resetPlayback()" class="w-9 h-9 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition" title="Reset">
+                  <i class="fa-solid fa-rotate-left"></i>
+                </button>
+              </div>
+
+              <!-- Speed Controls -->
+              <div class="flex items-center justify-between pt-2 border-t border-slate-800 text-xs text-slate-400">
+                <span>Playback Speed:</span>
+                <div class="flex items-center space-x-1">
+                  <button onclick="setSpeed(1500, this)" class="speed-btn px-2 py-0.5 rounded bg-slate-800 text-slate-300 hover:bg-slate-700">0.5x</button>
+                  <button onclick="setSpeed(900, this)" class="speed-btn px-2 py-0.5 rounded bg-emerald-600 text-white font-bold">1x</button>
+                  <button onclick="setSpeed(450, this)" class="speed-btn px-2 py-0.5 rounded bg-slate-800 text-slate-300 hover:bg-slate-700">2x</button>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Right: Backend Execution & Decision Inspector (7 cols) -->
+        <div class="lg:col-span-7 space-y-4">
+
+          <!-- Card 1: Backend Decision & Algorithmic Reasoning -->
+          <div class="bg-[#141824] border border-slate-800 rounded-xl p-5 shadow-lg">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-3">
+              <h2 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <i class="fa-solid fa-microchip text-emerald-400"></i> Backend Decision Inspector
+              </h2>
+              <div id="step-clue-container" class="flex items-center space-x-1 font-mono text-xs">
+                <!-- Color clue boxes rendered via JS -->
+              </div>
+            </div>
+
+            <div class="p-3 bg-slate-900/80 rounded-lg border border-slate-800">
+              <div class="text-[11px] font-semibold text-emerald-400 uppercase tracking-wide flex items-center gap-1.5 mb-1">
+                <i class="fa-solid fa-circle-info"></i> Why this guess was chosen:
+              </div>
+              <p id="backend-reason-text" class="text-xs text-slate-300 leading-relaxed font-sans">
+                Waiting for simulation to start...
+              </p>
+            </div>
+          </div>
+
+          <!-- Card 2: Search Space Reduction & Core Metrics -->
+          <div class="bg-[#141824] border border-slate-800 rounded-xl p-5 shadow-lg space-y-4">
+            <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+              <h2 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <i class="fa-solid fa-filter text-indigo-400"></i> Search Space Pruning
+              </h2>
+              <span id="reduction-pct-badge" class="text-xs font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                0% Pruned
+              </span>
+            </div>
+
+            <!-- Visual Collapse Progress Bar -->
+            <div class="w-full bg-slate-900 rounded-full h-3 border border-slate-800 overflow-hidden">
+              <div id="space-collapse-bar" class="bg-gradient-to-r from-emerald-500 to-indigo-500 h-3 rounded-full transition-all duration-500" style="width: 0%"></div>
+            </div>
+
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div class="bg-slate-900/80 p-3 rounded-lg border border-slate-800">
+                <div class="text-[10px] uppercase font-bold text-slate-500">Remaining</div>
+                <div id="stat-candidates" class="text-xl font-bold text-white mono mt-1">2,315</div>
+                <div class="text-[10px] text-slate-400 mt-0.5">possible words</div>
+              </div>
+              <div class="bg-slate-900/80 p-3 rounded-lg border border-slate-800">
+                <div class="text-[10px] uppercase font-bold text-slate-500">Eliminated</div>
+                <div id="stat-eliminated" class="text-xl font-bold text-rose-400 mono mt-1">0</div>
+                <div class="text-[10px] text-slate-400 mt-0.5">in this step</div>
+              </div>
+              <div class="bg-slate-900/80 p-3 rounded-lg border border-slate-800">
+                <div class="text-[10px] uppercase font-bold text-slate-500">Information Gain</div>
+                <div id="stat-entropy" class="text-xl font-bold text-indigo-400 mono mt-1">0.00</div>
+                <div class="text-[10px] text-slate-400 mt-0.5">Shannon bits</div>
+              </div>
+              <div class="bg-slate-900/80 p-3 rounded-lg border border-slate-800">
+                <div class="text-[10px] uppercase font-bold text-slate-500">Expected Guesses</div>
+                <div id="stat-value" class="text-xl font-bold text-amber-400 mono mt-1">3.42</div>
+                <div class="text-[10px] text-slate-400 mt-0.5">remaining cost</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 3: Deduction & Alphabet State Tracker (A-Z) -->
+          <div class="bg-[#141824] border border-slate-800 rounded-xl p-5 shadow-lg">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-3">
+              <h2 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <i class="fa-solid fa-keyboard text-emerald-400"></i> Backend Knowledge Tracker (Alphabet A-Z)
+              </h2>
+              <div class="flex items-center space-x-2 text-[10px] text-slate-400 font-medium">
+                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-wordle-green inline-block"></span> Position Locked</span>
+                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-wordle-yellow inline-block"></span> Present</span>
+                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-[#1f232d] inline-block border border-slate-700"></span> Eliminated</span>
+              </div>
+            </div>
+
+            <!-- 26 Letter Grid -->
+            <div id="alphabet-tracker" class="grid grid-cols-13 gap-1.5 sm:gap-2">
+              <!-- Rendered via JS -->
+            </div>
+          </div>
+
+          <!-- Card 4: Color Partitions & Candidate Word Cloud -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            
+            <!-- Partition Breakdown -->
+            <div class="bg-[#141824] border border-slate-800 rounded-xl p-4 shadow-lg">
+              <h3 class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5 pb-2 border-b border-slate-800 mb-2">
+                <i class="fa-solid fa-chart-pie text-indigo-400"></i> Active Partitions
+              </h3>
+              <div id="partitions-container" class="space-y-1.5 max-h-36 overflow-y-auto">
+                <div class="text-xs text-slate-500 text-center py-4">Execute a guess to inspect partitions.</div>
+              </div>
+            </div>
+
+            <!-- Remaining Viable Candidates Cloud -->
+            <div class="bg-[#141824] border border-slate-800 rounded-xl p-4 shadow-lg">
+              <div class="flex items-center justify-between pb-2 border-b border-slate-800 mb-2">
+                <h3 class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                  <i class="fa-solid fa-list-check text-emerald-400"></i> Surviving Words
+                </h3>
+                <span id="candidate-count-badge" class="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">
+                  2,315 words
+                </span>
+              </div>
+              <div id="candidate-cloud" class="flex flex-wrap gap-1 max-h-36 overflow-y-auto p-1.5 bg-slate-900/60 rounded border border-slate-800/80">
+                <!-- Rendered via JS -->
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+
+    <!-- VIEW 2: ALGORITHM COMPARISON -->
+    <div id="view-comp" class="hidden space-y-6">
+
+      <!-- Dynamic Current Run Head-to-Head Comparison -->
+      <div class="bg-[#141824] border border-slate-800 rounded-xl p-6 shadow-xl">
+        <div class="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-800">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold text-emerald-400 uppercase tracking-wider">Current Target Word:</span>
+              <span id="comp-current-secret" class="text-lg font-black mono text-white bg-slate-900 px-3 py-1 rounded border border-slate-700 tracking-widest">
+                CIGAR
+              </span>
+            </div>
+            <p class="text-xs text-slate-400 mt-1">Live multi-solver head-to-head performance on this run's hidden word</p>
+          </div>
+
+          <div id="comp-winner-banner" class="flex items-center space-x-2 bg-emerald-950/40 border border-emerald-500/30 px-3 py-1.5 rounded-lg">
+            <i class="fa-solid fa-trophy text-amber-400"></i>
+            <span class="text-xs text-slate-300">Winner on this word:</span>
+            <span id="comp-winner-name" class="text-xs font-bold text-emerald-400 mono">Exact DP</span>
+          </div>
+        </div>
+
+        <!-- Live Results Table for Current Word -->
+        <div class="mt-4 overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="text-slate-400 uppercase border-b border-slate-800 bg-slate-900/50">
+              <tr>
+                <th class="py-3 px-4">Algorithm</th>
+                <th class="py-3 px-4">Opening Guess</th>
+                <th class="py-3 px-4">Guesses on This Word</th>
+                <th class="py-3 px-4">Word Path Taken</th>
+                <th class="py-3 px-4">Status</th>
+              </tr>
+            </thead>
+            <tbody id="comp-current-tbody" class="divide-y divide-slate-800 mono">
+              <!-- Dynamically populated via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Global Benchmark Comparison Table (All 2,315 Words) -->
+      <div class="bg-[#141824] border border-slate-800 rounded-xl p-6 shadow-xl">
+        <div class="pb-4 border-b border-slate-800">
+          <h2 class="text-lg font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-scale-balanced text-indigo-400"></i> Benchmark Performance Across All 2,315 Words
+          </h2>
+          <p class="text-xs text-slate-400 mt-0.5">Evaluation over the complete Wordle dictionary</p>
+        </div>
+
+        <div class="mt-4 overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="text-slate-400 uppercase border-b border-slate-800 bg-slate-900/50">
+              <tr>
+                <th class="py-3 px-4">Algorithm</th>
+                <th class="py-3 px-4">First Guess</th>
+                <th class="py-3 px-4">Average Guesses</th>
+                <th class="py-3 px-4">Max Guesses</th>
+                <th class="py-3 px-4">Win Rate (&le;6 turns)</th>
+                <th class="py-3 px-4">Optimality Guarantee</th>
+                <th class="py-3 px-4">Core Tradeoff</th>
+              </tr>
+            </thead>
+            <tbody id="benchmark-tbody" class="divide-y divide-slate-800">
+              <!-- Populated via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-slate-800 bg-[#141824] px-6 py-4 text-center text-xs text-slate-500">
+    Wordle AI Solver Dashboard
+  </footer>
+
+  <script src="frontend/app.js"></script>
+</body>
+</html>
+

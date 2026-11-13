@@ -405,9 +405,48 @@ class WordleSolver:
 
         return path
 
+    def compare_all_solvers(self, secret: str) -> Dict[str, Any]:
+        """Runs and compares all 5 solvers on the exact secret word."""
+        secret = secret.lower()
+        solvers = [
+            ('exact_dp', 'Exact Dynamic Programming (Optimal)', 'SALET', 'Certifiably Optimal', self.solve_exact_dp),
+            ('entropy', 'Shannon Entropy Greedy', 'SOARE', '1-Step Information Greedy', self.solve_entropy_greedy),
+            ('two_step', '2-Step Lookahead (WordleBot)', 'CRANE', 'Truncated 2-Step Horizon', self.solve_two_step),
+            ('max_partitions', 'Max Partitions Greedy', 'TRACE', 'Maximum Partition Bins', self.solve_max_partitions),
+            ('random', 'Random Candidate Selection', 'Random', 'Baseline Selection', self.solve_random)
+        ]
+        results = []
+        for key, name, first_guess, tag, func in solvers:
+            try:
+                path = func(secret)
+                guesses = len(path)
+                won = guesses <= 6 and len(path) > 0 and path[-1][1] == 'GGGGG'
+                words_used = [p[0].upper() for p in path]
+            except Exception:
+                guesses = 6
+                won = False
+                words_used = []
+            results.append({
+                'key': key,
+                'name': name,
+                'first_guess': first_guess,
+                'tag': tag,
+                'guesses': guesses,
+                'won': won,
+                'path': words_used
+            })
+        results.sort(key=lambda x: (not x['won'], x['guesses']))
+        winner = results[0]['name'] if results else 'N/A'
+        return {
+            'secret': secret.upper(),
+            'solvers': results,
+            'winner': winner,
+            'best_guesses': results[0]['guesses'] if results else 0
+        }
+
     def simulate_step_by_step(self, secret: str, solver_type: str = 'exact_dp') -> List[Dict[str, Any]]:
         """
-        Produces detailed step-by-step game progression data for UI animations.
+        Produces detailed step-by-step game progression data with backend reasoning and alphabet deductions.
         """
         secret = secret.lower()
         if solver_type == 'exact_dp':
@@ -425,11 +464,31 @@ class WordleSolver:
 
         steps = []
         candidates = list(self.solutions)
+        alphabet_state = {chr(c): 'untested' for c in range(ord('A'), ord('Z') + 1)}
+        known_pattern = ['_', '_', '_', '_', '_']
 
         for step_idx, (guess, coloring) in enumerate(path):
             candidates_before = list(candidates)
             candidates_after = filter_candidates(candidates_before, guess, coloring)
             eliminated = [w for w in candidates_before if w not in set(candidates_after)]
+            before_count = len(candidates_before)
+            after_count = len(candidates_after)
+            elim_count = len(eliminated)
+            reduction_pct = round((elim_count / before_count) * 100, 1) if before_count > 0 else 0.0
+
+            # Update alphabet knowledge
+            for idx, ch in enumerate(guess):
+                c_upper = ch.upper()
+                c_col = coloring[idx]
+                if c_col == 'G':
+                    alphabet_state[c_upper] = 'green'
+                    known_pattern[idx] = c_upper
+                elif c_col == 'Y':
+                    if alphabet_state[c_upper] != 'green':
+                        alphabet_state[c_upper] = 'yellow'
+                elif c_col == 'X':
+                    if alphabet_state[c_upper] not in ('green', 'yellow'):
+                        alphabet_state[c_upper] = 'eliminated'
 
             # Partition breakdown
             parts = get_transitions(candidates_before, guess)
@@ -451,23 +510,49 @@ class WordleSolver:
 
             # Calculate metrics
             entropy_val = self.calculate_entropy(candidates_before, guess)
-            expected_cost = self.compute_lower_bound(len(candidates_after)) + 1.0
+            expected_cost = self.compute_lower_bound(after_count) + 1.0
+
+            # Generate clear backend algorithmic reasoning
+            if coloring == 'GGGGG':
+                reason = f"Exact match verified! All 5 tiles turned green. Secret '{secret.upper()}' successfully solved in {step_idx + 1} guesses."
+            elif step_idx == 0:
+                if solver_type == 'exact_dp':
+                    reason = "Global optimal root word 'SALET' executed. Selected via Bellman Dynamic Programming to minimize expected total turns across all 2,315 solutions to 3.421."
+                elif solver_type == 'entropy':
+                    reason = f"Opening word 'SOARE' executed. Selected to maximize expected Shannon information gain across vocabulary ({round(entropy_val, 2)} bits)."
+                elif solver_type == 'two_step':
+                    reason = "Opening word 'CRANE' executed. Selected via 2-step lookahead greedy heuristic."
+                elif solver_type == 'max_partitions':
+                    reason = f"Opening word 'TRACE' executed. Selected to maximize distinct non-empty partition bins ({len(parts)} partitions created)."
+                else:
+                    reason = f"Random opening guess '{guess.upper()}' picked from the candidate pool."
+            elif after_count == 1:
+                reason = f"Clue '{coloring}' eliminated {elim_count} candidates ({reduction_pct}% pruned). Search space collapsed to a single remaining word: '{candidates_after[0].upper()}'. Next guess is guaranteed solution."
+            elif before_count <= 2:
+                reason = f"Terminal threshold reached (|s| = {before_count}). Selected candidate '{guess.upper()}' directly with expected remaining cost V* = 1.5."
+            else:
+                reason = f"Received clue '{coloring}'. Eliminated {elim_count} words ({reduction_pct}% pruned). Evaluated actions across {len(parts)} color partitions with {round(entropy_val, 2)} bits information gain, narrowing search space to {after_count} words."
 
             step_data = {
                 'step_index': step_idx + 1,
                 'guess': guess.upper(),
                 'coloring': coloring,
                 'tile_states': tile_states,
-                'candidates_before_count': len(candidates_before),
-                'candidates_after_count': len(candidates_after),
+                'candidates_before_count': before_count,
+                'candidates_after_count': after_count,
                 'candidates_sample': candidates_after[:40],
-                'eliminated_count': len(eliminated),
+                'eliminated_count': elim_count,
                 'eliminated_sample': eliminated[:20],
+                'reduction_pct': reduction_pct,
                 'entropy_bits': round(entropy_val, 3),
                 'expected_cost': round(expected_cost, 2),
                 'top_partitions': top_parts,
+                'total_partitions': len(parts),
                 'is_won': coloring == 'GGGGG',
-                'solver_type': solver_type
+                'solver_type': solver_type,
+                'backend_reason': reason,
+                'alphabet_state': dict(alphabet_state),
+                'known_pattern': list(known_pattern)
             }
             steps.append(step_data)
             candidates = candidates_after

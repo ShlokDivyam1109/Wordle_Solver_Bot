@@ -1,0 +1,111 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
+
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: #0f1117;
+  color: #e2e8f0;
+}
+.mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* 13-Column Grid for A-Z Keyboard */
+.grid-cols-13 {
+  display: grid;
+  grid-template-columns: repeat(13, minmax(0, 1fr));
+}
+
+/* Authentic Wordle 3D Flip Animation */
+.wordle-tile {
+  perspective: 1000px;
+  transition: all 0.25s ease;
+}
+.tile-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  text-align: center;
+  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-style: preserve-3d;
+}
+.tile-flipped .tile-inner {
+  transform: rotateX(180deg);
+}
+.tile-front, .tile-back {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+}
+.tile-front {
+  background-color: #1e2230;
+  border: 2px solid #333a4d;
+  color: #f8fafc;
+}
+.tile-back {
+  transform: rotateX(180deg);
+  border: 2px solid transparent;
+  color: #ffffff;
+  font-weight: 800;
+}
+
+/* Wordle Official Tile Colors */
+.bg-wordle-green { background-color: #538d4e !important; }
+.bg-wordle-yellow { background-color: #b59f3b !important; }
+.bg-wordle-gray { background-color: #3a3a3c !important; }
+.border-wordle-green { border-color: #538d4e !important; }
+
+/* Keyboard Deduction Key Styles */
+.key-tile {
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  font-size: 0.75rem;
+  border-radius: 4px;
+  transition: all 0.25s ease;
+}
+.key-untested {
+  background-color: #1a1e2d;
+  color: #94a3b8;
+  border: 1px solid #2e3549;
+}
+.key-eliminated {
+  background-color: #161922;
+  color: #475569;
+  border: 1px solid #1f232d;
+  text-decoration: line-through;
+  opacity: 0.5;
+}
+.key-yellow {
+  background-color: #b59f3b;
+  color: #ffffff;
+  border: 1px solid #d4be48;
+}
+.key-green {
+  background-color: #538d4e;
+  color: #ffffff;
+  border: 1px solid #68ad62;
+  box-shadow: 0 0 6px rgba(83, 141, 78, 0.4);
+}
+
+/* Pulse for victory */
+@keyframes winPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.04); }
+}
+.win-row {
+  animation: winPulse 0.8s ease-in-out infinite alternate;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: #141824; }
+::-webkit-scrollbar-thumb { background: #2e3549; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #475569; }
