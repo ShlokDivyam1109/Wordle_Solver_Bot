@@ -29,9 +29,9 @@ This project implements:
 
 See [`docs/HIGH_LEVEL_DESIGN.md`](docs/HIGH_LEVEL_DESIGN.md) for the full high-level design document.
 
-## Getting Started
+## Live Dashboard
 
-*Coming soon — see the development roadmap in the design doc.*
+https://wordle-ai-project.vercel.app/
 
 ## License
 
