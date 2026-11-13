@@ -33,7 +33,51 @@ class handler(BaseHTTPRequestHandler):
         path = parsed.path
         query = urllib.parse.parse_qs(parsed.query)
 
-        if 'simulate' in path:
+        # 1. Serve frontend HTML
+        if path == '/' or path == '/index.html':
+            html_path = os.path.join(ROOT_DIR, 'index.html')
+            if not os.path.exists(html_path):
+                html_path = os.path.join(ROOT_DIR, 'frontend', 'index.html')
+            with open(html_path, 'rb') as f:
+                content = f.read()
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/html; charset=utf-8')
+            self.send_header('Content-Length', str(len(content)))
+            self.end_headers()
+            self.wfile.write(content)
+            return
+
+        # 2. Serve CSS
+        elif path.endswith('.css'):
+            css_path = os.path.join(ROOT_DIR, 'frontend', 'style.css')
+            with open(css_path, 'rb') as f:
+                content = f.read()
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/css; charset=utf-8')
+            self.send_header('Content-Length', str(len(content)))
+            self.end_headers()
+            self.wfile.write(content)
+            return
+
+        # 3. Serve JS
+        elif path.endswith('.js') and not path.startswith('/api'):
+            js_path = os.path.join(ROOT_DIR, 'frontend', 'app.js')
+            with open(js_path, 'rb') as f:
+                content = f.read()
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/javascript; charset=utf-8')
+            self.send_header('Content-Length', str(len(content)))
+            self.end_headers()
+            self.wfile.write(content)
+            return
+
+        elif path == '/favicon.ico':
+            self.send_response(204)
+            self.end_headers()
+            return
+
+        # 4. API Endpoints
+        elif 'simulate' in path:
             secret = query.get('secret', ['CIGAR'])[0].strip().lower()
             solver_type = query.get('solver', ['exact_dp'])[0].strip().lower()
 
@@ -74,4 +118,3 @@ class handler(BaseHTTPRequestHandler):
         self.send_header('Content-Length', str(len(body)))
         self.end_headers()
         self.wfile.write(body)
-
