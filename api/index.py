@@ -11,8 +11,14 @@ if ROOT_DIR not in sys.path:
     sys.path.append(ROOT_DIR)
 
 import engine
+import tree
 
 solver_instance = engine.WordleSolver()
+tree_policy = tree.InterpretableTreePolicy()
+try:
+    tree_policy.train_on_salet_g2()
+except Exception as e:
+    pass
 
 BENCHMARK_PATH = os.path.join(ROOT_DIR, 'data', 'benchmark_results.json')
 benchmark_cache = None
@@ -124,6 +130,50 @@ class handler(BaseHTTPRequestHandler):
 
         elif 'benchmarks' in full_target:
             res = benchmark_cache or {}
+
+        elif 'tree' in full_target or 'helper' in full_target:
+            coloring = query.get('coloring', ['XXXXX'])[0].strip().upper()
+            guess = query.get('guess', ['salet'])[0].strip().lower()
+            valid_chars = {'G', 'Y', 'X'}
+            cleaned = ''.join(c if c in valid_chars else 'X' for c in coloring)[:5].ljust(5, 'X')
+
+            try:
+                matching_words = [w for w in solver_instance.solutions if engine.get_coloring(guess, w) == cleaned]
+                path_data = []
+                recommended = ''
+
+                if guess == 'salet':
+                    path_data = tree_policy.trace_path(cleaned)
+                    if path_data:
+                        recommended = path_data[-1].get('recommended_guess', '')
+
+                if not recommended:
+                    if len(matching_words) == 1:
+                        recommended = matching_words[0].upper()
+                    elif len(matching_words) > 1:
+                        best_act = None
+                        best_ent = -1
+                        for w in matching_words[:30]:
+                            ent = solver_instance.calculate_entropy(matching_words, w)
+                            if ent > best_ent:
+                                best_ent = ent
+                                best_act = w
+                        recommended = (best_act or matching_words[0]).upper()
+                    else:
+                        recommended = 'NO MATCH'
+
+                res = {
+                    'status': 'ok',
+                    'guess': guess.upper(),
+                    'coloring': cleaned,
+                    'recommended_guess': recommended,
+                    'path': path_data,
+                    'candidates_count': len(matching_words),
+                    'candidates_sample': matching_words[:60]
+                }
+            except Exception as e:
+                status_code = 500
+                res = {'status': 'error', 'message': str(e)}
 
         else:
             status_code = 404

@@ -490,28 +490,180 @@ async function loadBenchmarks() {
 
 // Tab Switching
 function switchTab(tab) {
-  const simView = document.getElementById('view-sim');
-  const compView = document.getElementById('view-comp');
-  const simBtn = document.getElementById('tab-sim-btn');
-  const compBtn = document.getElementById('tab-comp-btn');
+  const views = {
+    sim: document.getElementById('view-sim'),
+    comp: document.getElementById('view-comp'),
+    helper: document.getElementById('view-helper')
+  };
+  const btns = {
+    sim: document.getElementById('tab-sim-btn'),
+    comp: document.getElementById('tab-comp-btn'),
+    helper: document.getElementById('tab-helper-btn')
+  };
 
-  if (tab === 'sim') {
-    simView.classList.remove('hidden');
-    compView.classList.add('hidden');
-    simBtn.classList.remove('text-slate-400');
-    simBtn.classList.add('bg-emerald-600', 'text-white', 'shadow');
-    compBtn.classList.remove('bg-emerald-600', 'text-white', 'shadow');
-    compBtn.classList.add('text-slate-400');
-  } else {
-    simView.classList.add('hidden');
-    compView.classList.remove('hidden');
-    compBtn.classList.remove('text-slate-400');
-    compBtn.classList.add('bg-emerald-600', 'text-white', 'shadow');
-    simBtn.classList.remove('bg-emerald-600', 'text-white', 'shadow');
-    simBtn.classList.add('text-slate-400');
+  Object.keys(views).forEach(k => {
+    if (views[k]) {
+      if (k === tab) {
+        views[k].classList.remove('hidden');
+        btns[k]?.classList.remove('text-slate-400');
+        btns[k]?.classList.add('bg-emerald-600', 'text-white', 'shadow');
+      } else {
+        views[k].classList.add('hidden');
+        btns[k]?.classList.remove('bg-emerald-600', 'text-white', 'shadow');
+        btns[k]?.classList.add('text-slate-400');
+      }
+    }
+  });
 
+  if (tab === 'comp') {
     renderCurrentComparison();
     loadBenchmarks();
+  } else if (tab === 'helper') {
+    traceHelperPattern();
+  }
+}
+
+// Interactive Helper State & Logic
+let currentHelperPattern = ['X', 'X', 'X', 'X', 'X'];
+
+function updateHelperTileUI() {
+  for (let i = 0; i < 5; i++) {
+    const el = document.getElementById(`helper-tile-${i}`);
+    if (!el) continue;
+    const ch = currentHelperPattern[i];
+    el.innerText = ch;
+    el.classList.remove('bg-wordle-gray', 'bg-wordle-yellow', 'bg-wordle-green');
+    if (ch === 'G') {
+      el.classList.add('bg-wordle-green');
+    } else if (ch === 'Y') {
+      el.classList.add('bg-wordle-yellow');
+    } else {
+      el.classList.add('bg-wordle-gray');
+    }
+  }
+  const inputEl = document.getElementById('helper-pattern-input');
+  if (inputEl) {
+    inputEl.value = currentHelperPattern.join('');
+  }
+}
+
+function cycleHelperTile(index) {
+  const nextMap = { 'X': 'Y', 'Y': 'G', 'G': 'X' };
+  currentHelperPattern[index] = nextMap[currentHelperPattern[index]] || 'X';
+  updateHelperTileUI();
+  traceHelperPattern();
+}
+
+function syncHelperPatternFromInput() {
+  const inputEl = document.getElementById('helper-pattern-input');
+  if (!inputEl) return;
+  const raw = inputEl.value.trim().toUpperCase();
+  const valid = ['G', 'Y', 'X'];
+  for (let i = 0; i < 5; i++) {
+    if (i < raw.length && valid.includes(raw[i])) {
+      currentHelperPattern[i] = raw[i];
+    } else {
+      currentHelperPattern[i] = 'X';
+    }
+  }
+  updateHelperTileUI();
+  if (raw.length === 5) {
+    traceHelperPattern();
+  }
+}
+
+function setHelperPattern(pat) {
+  pat = pat.toUpperCase().slice(0, 5);
+  for (let i = 0; i < 5; i++) {
+    currentHelperPattern[i] = pat[i] || 'X';
+  }
+  updateHelperTileUI();
+  traceHelperPattern();
+}
+
+async function traceHelperPattern() {
+  const pat = currentHelperPattern.join('');
+  const activeDisplay = document.getElementById('helper-active-pattern-display');
+  if (activeDisplay) activeDisplay.innerText = pat;
+
+  const recWordEl = document.getElementById('helper-rec-word');
+  const pathContainer = document.getElementById('helper-tree-path-container');
+  const candidatesCountEl = document.getElementById('helper-candidates-count');
+  const candidatesBadgeEl = document.getElementById('helper-candidates-badge');
+  const candidatesCloudEl = document.getElementById('helper-candidates-cloud');
+
+  if (pathContainer) {
+    pathContainer.innerHTML = '<div class="text-xs text-slate-500 py-3 text-center">Evaluating optimal decision tree...</div>';
+  }
+
+  try {
+    const res = await fetch(`/api/tree?coloring=${pat}&guess=salet`);
+    const data = await res.json();
+
+    if (data.status === 'ok') {
+      if (recWordEl) recWordEl.innerText = data.recommended_guess || '---';
+      if (candidatesCountEl) candidatesCountEl.innerText = data.candidates_count;
+      if (candidatesBadgeEl) candidatesBadgeEl.innerText = `${data.candidates_count} words`;
+
+      // Render candidates cloud
+      if (candidatesCloudEl) {
+        if (!data.candidates_sample || data.candidates_sample.length === 0) {
+          candidatesCloudEl.innerHTML = '<span class="text-xs text-rose-400">No remaining words match this pattern with SALET</span>';
+        } else {
+          candidatesCloudEl.innerHTML = data.candidates_sample.map(w => `
+            <span class="px-2 py-0.5 rounded bg-slate-900 border border-slate-700 text-slate-300 text-xs font-mono font-medium hover:border-emerald-500 hover:text-white transition">
+              ${w.toUpperCase()}
+            </span>
+          `).join('');
+          if (data.candidates_count > data.candidates_sample.length) {
+            candidatesCloudEl.innerHTML += `<span class="text-xs text-slate-500 italic self-center ml-1">+${data.candidates_count - data.candidates_sample.length} more</span>`;
+          }
+        }
+      }
+
+      // Render tree path breadcrumbs
+      if (pathContainer) {
+        if (!data.path || data.path.length === 0) {
+          pathContainer.innerHTML = '<div class="text-xs text-slate-500 py-3 text-center">No tree trace available.</div>';
+        } else {
+          let html = '';
+          data.path.forEach((node, idx) => {
+            if (node.is_leaf) {
+              html += `
+                <div class="flex items-center space-x-3 p-3.5 bg-emerald-950/40 border border-emerald-500/50 rounded-xl shadow-lg shadow-emerald-950/30">
+                  <div class="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-sm shadow">
+                    <i class="fa-solid fa-check"></i>
+                  </div>
+                  <div>
+                    <div class="text-[11px] uppercase font-bold text-emerald-400 tracking-wider">Optimal Leaf Action</div>
+                    <div class="text-xl font-black mono text-white tracking-widest mt-0.5">GUESS: ${node.recommended_guess}</div>
+                  </div>
+                </div>
+              `;
+            } else {
+              const evalBadge = node.evaluated_true ? 
+                '<span class="px-2 py-0.5 text-[11px] rounded bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30 flex items-center gap-1"><i class="fa-solid fa-arrow-turn-down fa-rotate-270 text-[9px]"></i> YES (Right)</span>' :
+                '<span class="px-2 py-0.5 text-[11px] rounded bg-slate-800 text-slate-400 font-bold border border-slate-700 flex items-center gap-1"><i class="fa-solid fa-arrow-turn-down text-[9px]"></i> NO (Left)</span>';
+
+              html += `
+                <div class="flex items-center justify-between p-3 bg-slate-900/80 border border-slate-800 rounded-lg text-xs hover:border-slate-700 transition">
+                  <div class="flex items-center space-x-3">
+                    <span class="font-mono font-bold text-slate-500 text-[11px]">#${node.node_id}</span>
+                    <div class="text-slate-200">
+                      Rule: <strong class="text-white">${node.question}</strong>
+                    </div>
+                  </div>
+                  ${evalBadge}
+                </div>
+              `;
+            }
+          });
+          pathContainer.innerHTML = html;
+        }
+      }
+    }
+  } catch (e) {
+    console.error('Error tracing helper pattern:', e);
   }
 }
 
