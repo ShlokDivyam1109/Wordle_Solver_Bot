@@ -146,45 +146,86 @@ class handler(BaseHTTPRequestHandler):
             res = benchmark_cache or {}
 
         elif 'tree' in full_target or 'helper' in full_target:
-            coloring = query.get('coloring', ['XXXXX'])[0].strip().upper()
-            guess = query.get('guess', ['salet'])[0].strip().lower()
+            # Multi-turn history support:
+            # Supports comma-separated entries: history=salet:xyxxx,brond:xyxxx
+            # Also backwards-compatible with single-turn: guess=salet&coloring=xyxxx
+            raw_history = query.get('history', [''])[0].strip()
+            history_list = []
             valid_chars = {'G', 'Y', 'X'}
-            cleaned = ''.join(c if c in valid_chars else 'X' for c in coloring)[:5].ljust(5, 'X')
+
+            if raw_history:
+                for entry in raw_history.split(','):
+                    if ':' in entry:
+                        g, c = entry.split(':', 1)
+                        g = g.strip().lower()
+                        c = ''.join(ch if ch in valid_chars else 'X' for ch in c.strip().upper())[:5].ljust(5, 'X')
+                        if len(g) == 5:
+                            history_list.append({'guess': g, 'coloring': c})
+            else:
+                coloring = query.get('coloring', ['XXXXX'])[0].strip().upper()
+                guess = query.get('guess', ['salet'])[0].strip().lower()
+                cleaned = ''.join(ch if ch in valid_chars else 'X' for ch in coloring)[:5].ljust(5, 'X')
+                if len(guess) == 5:
+                    history_list.append({'guess': guess, 'coloring': cleaned})
 
             try:
-                matching_words = [w for w in solver_instance.solutions if engine.get_coloring(guess, w) == cleaned]
-                # Get optimal guess from precomputed table
+                # Progressively filter candidates through all history steps
+                candidates = list(solver_instance.solutions)
+                for step in history_list:
+                    candidates = engine.filter_candidates(candidates, step['guess'], step['coloring'])
+
+                n = len(candidates)
                 recommended = ''
-                if guess == 'salet':
-                    recommended = solver_instance.salet_g2.get(cleaned, '')
+                reason = ''
+                status = 'ok'
 
-                if not recommended:
-                    if len(matching_words) == 1:
-                        recommended = matching_words[0].upper()
-                    elif len(matching_words) > 1:
-                        best_act = None
-                        best_ent = -1
-                        for w in matching_words[:30]:
-                            ent = solver_instance.calculate_entropy(matching_words, w)
-                            if ent > best_ent:
-                                best_ent = ent
-                                best_act = w
-                        recommended = (best_act or matching_words[0]).upper()
-                    else:
-                        recommended = 'NO MATCH'
+                if n == 0:
+                    status = 'empty'
+                    recommended = 'NO MATCH'
+                    reason = 'No words match all clues. Please verify the coloring pattern of your guesses.'
+                elif n == 1:
+                    status = 'solved'
+                    recommended = candidates[0].upper()
+                    reason = f'100% Certain Solution ({candidates[0].upper()})! Game Solved.'
+                elif n == 2:
+                    status = 'progress'
+                    recommended = candidates[0].upper()
+                    reason = f'Two words remain: {candidates[0].upper()} or {candidates[1].upper()} (50% instant win chance).'
                 else:
-                    recommended = recommended.upper()
+                    # If exactly turn 1 with SALET, use paper's exact optimal G2 table
+                    if len(history_list) == 1 and history_list[0]['guess'] == 'salet':
+                        first_col = history_list[0]['coloring']
+                        g2 = solver_instance.salet_g2.get(first_col)
+                        if g2:
+                            recommended = g2.upper()
+                            reason = 'MIT OCT-H Optimal Policy for SALET (Depth 8 Tree)'
 
-                path_data = generate_tree_trace(cleaned, recommended)
+                    # Otherwise, compute optimal discriminator
+                    if not recommended:
+                        best_act = None
+                        best_ent = -1.0
+                        pool = candidates if n <= 5 else (candidates + solver_instance.all_guesses[:300])
+                        for g in pool:
+                            ent = solver_instance.calculate_entropy(candidates, g)
+                            in_state_bonus = 0.001 if g in candidates else 0.0
+                            if ent + in_state_bonus > best_ent:
+                                best_ent = ent + in_state_bonus
+                                best_act = g
+                        recommended = (best_act or candidates[0]).upper()
+                        reason = f'Optimal Information Discriminator (Entropy = {best_ent:.2f} bits)'
+
+                last_col = history_list[-1]['coloring'] if history_list else 'XXXXX'
+                path_data = generate_tree_trace(last_col, recommended)
 
                 res = {
-                    'status': 'ok',
-                    'guess': guess.upper(),
-                    'coloring': cleaned,
+                    'status': status,
+                    'turn': len(history_list) + 1,
+                    'history': history_list,
                     'recommended_guess': recommended,
+                    'reason': reason,
                     'path': path_data,
-                    'candidates_count': len(matching_words),
-                    'candidates_sample': matching_words[:60]
+                    'candidates_count': n,
+                    'candidates_sample': [c.upper() for c in candidates[:60]]
                 }
             except Exception as e:
                 status_code = 500

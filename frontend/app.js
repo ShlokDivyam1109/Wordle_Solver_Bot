@@ -519,18 +519,117 @@ function switchTab(tab) {
     renderCurrentComparison();
     loadBenchmarks();
   } else if (tab === 'helper') {
-    traceHelperPattern();
+    if (helperHistory.length === 0) {
+      fetchHelperRecommendation();
+    }
   }
 }
 
-// Interactive Helper State & Logic
-let currentHelperPattern = ['X', 'X', 'X', 'X', 'X'];
+// Multi-Turn Interactive Helper State
+let helperHistory = []; // Array of completed turns: [{guess: 'SALET', coloring: 'XYXXX', count: 102}, ...]
+let helperCurrentTurn = 1;
+let helperCurrentGuess = 'SALET';
+let helperCurrentPattern = ['X', 'X', 'X', 'X', 'X'];
+
+function resetHelperGame() {
+  helperHistory = [];
+  helperCurrentTurn = 1;
+  helperCurrentGuess = 'SALET';
+  helperCurrentPattern = ['X', 'X', 'X', 'X', 'X'];
+
+  document.getElementById('helper-victory-card')?.classList.add('hidden');
+  document.getElementById('helper-empty-card')?.classList.add('hidden');
+  document.getElementById('helper-active-turn-card')?.classList.remove('hidden');
+  document.getElementById('helper-undo-btn')?.classList.add('hidden');
+
+  const guessInput = document.getElementById('helper-guess-input');
+  if (guessInput) {
+    guessInput.value = 'SALET';
+    guessInput.disabled = false;
+  }
+  updateHelperTurnUI();
+  updateHelperTileUI();
+  fetchHelperRecommendation();
+}
+
+function undoHelperTurn() {
+  if (helperHistory.length === 0) return;
+  const removed = helperHistory.pop();
+  helperCurrentTurn = helperHistory.length + 1;
+  helperCurrentGuess = removed.guess;
+  helperCurrentPattern = removed.coloring.split('');
+
+  document.getElementById('helper-victory-card')?.classList.add('hidden');
+  document.getElementById('helper-empty-card')?.classList.add('hidden');
+  document.getElementById('helper-active-turn-card')?.classList.remove('hidden');
+
+  const guessInput = document.getElementById('helper-guess-input');
+  if (guessInput) {
+    guessInput.value = helperCurrentGuess;
+    guessInput.disabled = false;
+  }
+
+  updateHelperTurnUI();
+  updateHelperTileUI();
+  fetchHelperRecommendation();
+}
+
+function onHelperGuessChange() {
+  const input = document.getElementById('helper-guess-input');
+  if (!input) return;
+  helperCurrentGuess = input.value.trim().toUpperCase();
+}
+
+function updateHelperTurnUI() {
+  const badge = document.getElementById('helper-turn-badge');
+  if (badge) badge.innerText = `TURN ${helperCurrentTurn} OF 6`;
+
+  const submitText = document.getElementById('helper-submit-btn-text');
+  if (submitText) submitText.innerText = `Confirm Turn ${helperCurrentTurn} & Get Next Word`;
+
+  const undoBtn = document.getElementById('helper-undo-btn');
+  if (undoBtn) {
+    if (helperHistory.length > 0) undoBtn.classList.remove('hidden');
+    else undoBtn.classList.add('hidden');
+  }
+
+  // Render completed history cards
+  const historyContainer = document.getElementById('helper-history-list');
+  if (historyContainer) {
+    if (helperHistory.length === 0) {
+      historyContainer.innerHTML = '';
+    } else {
+      let html = '';
+      helperHistory.forEach((turn, idx) => {
+        const colorTiles = turn.coloring.split('').map((c, i) => {
+          const bg = c === 'G' ? 'bg-wordle-green' : (c === 'Y' ? 'bg-wordle-yellow' : 'bg-wordle-gray');
+          const letter = turn.guess[i] || '';
+          return `<span class="w-8 h-8 rounded ${bg} text-white font-bold text-sm mono flex items-center justify-center shadow-sm">${letter}</span>`;
+        }).join('');
+
+        html += `
+          <div class="bg-[#141824] border border-slate-800 rounded-lg p-3.5 flex items-center justify-between shadow">
+            <div class="flex items-center space-x-3">
+              <span class="px-2 py-0.5 rounded bg-slate-800 text-slate-400 font-bold text-[11px] mono">Turn ${idx + 1}</span>
+              <div class="flex items-center gap-1.5">${colorTiles}</div>
+              <span class="text-xs font-bold mono text-white ml-2">${turn.guess}</span>
+            </div>
+            <div class="flex items-center space-x-3 text-xs">
+              <span class="text-slate-400 font-mono"><strong class="text-emerald-400">${turn.count}</strong> candidates remaining</span>
+            </div>
+          </div>
+        `;
+      });
+      historyContainer.innerHTML = html;
+    }
+  }
+}
 
 function updateHelperTileUI() {
   for (let i = 0; i < 5; i++) {
     const el = document.getElementById(`helper-tile-${i}`);
     if (!el) continue;
-    const ch = currentHelperPattern[i];
+    const ch = helperCurrentPattern[i] || 'X';
     el.innerText = ch;
     el.classList.remove('bg-wordle-gray', 'bg-wordle-yellow', 'bg-wordle-green');
     if (ch === 'G') {
@@ -543,15 +642,14 @@ function updateHelperTileUI() {
   }
   const inputEl = document.getElementById('helper-pattern-input');
   if (inputEl) {
-    inputEl.value = currentHelperPattern.join('');
+    inputEl.value = helperCurrentPattern.join('');
   }
 }
 
 function cycleHelperTile(index) {
   const nextMap = { 'X': 'Y', 'Y': 'G', 'G': 'X' };
-  currentHelperPattern[index] = nextMap[currentHelperPattern[index]] || 'X';
+  helperCurrentPattern[index] = nextMap[helperCurrentPattern[index]] || 'X';
   updateHelperTileUI();
-  traceHelperPattern();
 }
 
 function syncHelperPatternFromInput() {
@@ -561,109 +659,177 @@ function syncHelperPatternFromInput() {
   const valid = ['G', 'Y', 'X'];
   for (let i = 0; i < 5; i++) {
     if (i < raw.length && valid.includes(raw[i])) {
-      currentHelperPattern[i] = raw[i];
+      helperCurrentPattern[i] = raw[i];
     } else {
-      currentHelperPattern[i] = 'X';
+      helperCurrentPattern[i] = 'X';
     }
   }
   updateHelperTileUI();
-  if (raw.length === 5) {
-    traceHelperPattern();
-  }
 }
 
 function setHelperPattern(pat) {
   pat = pat.toUpperCase().slice(0, 5);
   for (let i = 0; i < 5; i++) {
-    currentHelperPattern[i] = pat[i] || 'X';
+    helperCurrentPattern[i] = pat[i] || 'X';
   }
   updateHelperTileUI();
-  traceHelperPattern();
 }
 
-async function traceHelperPattern() {
-  const pat = currentHelperPattern.join('');
-  const activeDisplay = document.getElementById('helper-active-pattern-display');
-  if (activeDisplay) activeDisplay.innerText = pat;
+async function submitHelperTurn() {
+  const guess = (document.getElementById('helper-guess-input')?.value || helperCurrentGuess).trim().toUpperCase();
+  const pattern = helperCurrentPattern.join('');
 
-  const recWordEl = document.getElementById('helper-rec-word');
-  const pathContainer = document.getElementById('helper-tree-path-container');
-  const candidatesCountEl = document.getElementById('helper-candidates-count');
-  const candidatesBadgeEl = document.getElementById('helper-candidates-badge');
-  const candidatesCloudEl = document.getElementById('helper-candidates-cloud');
-
-  if (pathContainer) {
-    pathContainer.innerHTML = '<div class="text-xs text-slate-500 py-3 text-center">Evaluating optimal decision tree...</div>';
+  if (guess.length !== 5) {
+    alert('Please enter a valid 5-letter guess word.');
+    return;
   }
 
+  // Winning turn
+  if (pattern === 'GGGGG') {
+    helperHistory.push({ guess: guess, coloring: pattern, count: 1 });
+    showVictoryBanner(guess, helperHistory.length);
+    updateHelperTurnUI();
+    return;
+  }
+
+  // Build full history parameter
+  const newHistory = [...helperHistory, { guess: guess, coloring: pattern }];
+  const historyParam = newHistory.map(h => `${h.guess.toLowerCase()}:${h.coloring.toUpperCase()}`).join(',');
+
   try {
-    const res = await fetch(`/api/tree?coloring=${pat}&guess=salet`);
+    const res = await fetch(`/api/helper?history=${historyParam}`);
     const data = await res.json();
 
-    if (data.status === 'ok') {
-      if (recWordEl) recWordEl.innerText = data.recommended_guess || '---';
-      if (candidatesCountEl) candidatesCountEl.innerText = data.candidates_count;
-      if (candidatesBadgeEl) candidatesBadgeEl.innerText = `${data.candidates_count} words`;
+    // Lock in this turn
+    helperHistory.push({
+      guess: guess,
+      coloring: pattern,
+      count: data.candidates_count
+    });
 
-      // Render candidates cloud
-      if (candidatesCloudEl) {
-        if (!data.candidates_sample || data.candidates_sample.length === 0) {
-          candidatesCloudEl.innerHTML = '<span class="text-xs text-rose-400">No remaining words match this pattern with SALET</span>';
-        } else {
-          candidatesCloudEl.innerHTML = data.candidates_sample.map(w => `
-            <span class="px-2 py-0.5 rounded bg-slate-900 border border-slate-700 text-slate-300 text-xs font-mono font-medium hover:border-emerald-500 hover:text-white transition">
-              ${w.toUpperCase()}
-            </span>
-          `).join('');
-          if (data.candidates_count > data.candidates_sample.length) {
-            candidatesCloudEl.innerHTML += `<span class="text-xs text-slate-500 italic self-center ml-1">+${data.candidates_count - data.candidates_sample.length} more</span>`;
-          }
-        }
+    helperCurrentTurn = helperHistory.length + 1;
+
+    // Check outcome
+    if (data.status === 'solved' || data.candidates_count === 1) {
+      showVictoryBanner(data.recommended_guess, helperHistory.length);
+    } else if (data.status === 'empty' || data.candidates_count === 0) {
+      document.getElementById('helper-empty-card')?.classList.remove('hidden');
+      document.getElementById('helper-active-turn-card')?.classList.add('hidden');
+    } else {
+      helperCurrentGuess = data.recommended_guess || 'SALET';
+      const guessInput = document.getElementById('helper-guess-input');
+      if (guessInput) {
+        guessInput.value = helperCurrentGuess;
       }
+      helperCurrentPattern = ['X', 'X', 'X', 'X', 'X'];
+      updateHelperTileUI();
+    }
 
-      // Render tree path breadcrumbs
-      if (pathContainer) {
-        if (!data.path || data.path.length === 0) {
-          pathContainer.innerHTML = '<div class="text-xs text-slate-500 py-3 text-center">No tree trace available.</div>';
-        } else {
-          let html = '';
-          data.path.forEach((node, idx) => {
-            if (node.is_leaf) {
-              html += `
-                <div class="flex items-center space-x-3 p-3.5 bg-emerald-950/40 border border-emerald-500/50 rounded-xl shadow-lg shadow-emerald-950/30">
-                  <div class="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-sm shadow">
-                    <i class="fa-solid fa-check"></i>
-                  </div>
-                  <div>
-                    <div class="text-[11px] uppercase font-bold text-emerald-400 tracking-wider">Optimal Leaf Action</div>
-                    <div class="text-xl font-black mono text-white tracking-widest mt-0.5">GUESS: ${node.recommended_guess}</div>
-                  </div>
-                </div>
-              `;
-            } else {
-              const evalBadge = node.evaluated_true ? 
-                '<span class="px-2 py-0.5 text-[11px] rounded bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30 flex items-center gap-1"><i class="fa-solid fa-arrow-turn-down fa-rotate-270 text-[9px]"></i> YES (Right)</span>' :
-                '<span class="px-2 py-0.5 text-[11px] rounded bg-slate-800 text-slate-400 font-bold border border-slate-700 flex items-center gap-1"><i class="fa-solid fa-arrow-turn-down text-[9px]"></i> NO (Left)</span>';
+    updateHelperTurnUI();
+    renderHelperDiagnostics(data);
+  } catch (e) {
+    console.error('Error submitting helper turn:', e);
+  }
+}
 
-              html += `
-                <div class="flex items-center justify-between p-3 bg-slate-900/80 border border-slate-800 rounded-lg text-xs hover:border-slate-700 transition">
-                  <div class="flex items-center space-x-3">
-                    <span class="font-mono font-bold text-slate-500 text-[11px]">#${node.node_id}</span>
-                    <div class="text-slate-200">
-                      Rule: <strong class="text-white">${node.question}</strong>
-                    </div>
-                  </div>
-                  ${evalBadge}
-                </div>
-              `;
-            }
-          });
-          pathContainer.innerHTML = html;
-        }
+async function fetchHelperRecommendation() {
+  const historyParam = helperHistory.map(h => `${h.guess.toLowerCase()}:${h.coloring.toUpperCase()}`).join(',');
+  const url = historyParam ? `/api/helper?history=${historyParam}` : `/api/helper?history=salet:xxxxx`;
+
+  try {
+    const res = await fetch(url);
+    const data = await res.json();
+    if (helperHistory.length === 0) {
+      data.recommended_guess = 'SALET';
+      data.candidates_count = 2315;
+      data.reason = 'Optimal opening word proven by MIT paper (Avg 3.42 guesses)';
+    }
+    renderHelperDiagnostics(data);
+  } catch (e) {
+    console.error('Error fetching helper recommendation:', e);
+  }
+}
+
+function showVictoryBanner(word, turns) {
+  const victoryCard = document.getElementById('helper-victory-card');
+  const victoryMsg = document.getElementById('helper-victory-msg');
+  const activeTurnCard = document.getElementById('helper-active-turn-card');
+
+  if (victoryCard) victoryCard.classList.remove('hidden');
+  if (activeTurnCard) activeTurnCard.classList.add('hidden');
+  if (victoryMsg) {
+    victoryMsg.innerHTML = `The hidden word is <strong class="text-white text-base mono font-black">${word}</strong>! Solved in <strong class="text-emerald-400 font-bold">${turns} moves</strong> with 100% certainty.`;
+  }
+
+  const recWordEl = document.getElementById('helper-rec-word');
+  if (recWordEl) recWordEl.innerText = word;
+  const countEl = document.getElementById('helper-candidates-count');
+  if (countEl) countEl.innerText = '1';
+  const pctEl = document.getElementById('helper-search-space-pct');
+  if (pctEl) pctEl.innerText = '0.04%';
+}
+
+function renderHelperDiagnostics(data) {
+  if (!data) return;
+
+  const recWordEl = document.getElementById('helper-rec-word');
+  const recReasonEl = document.getElementById('helper-rec-reason');
+  const countEl = document.getElementById('helper-candidates-count');
+  const badgeEl = document.getElementById('helper-candidates-badge');
+  const cloudEl = document.getElementById('helper-candidates-cloud');
+  const pctEl = document.getElementById('helper-search-space-pct');
+  const pathContainer = document.getElementById('helper-tree-path-container');
+
+  if (recWordEl) recWordEl.innerText = data.recommended_guess || '---';
+  if (recReasonEl) recReasonEl.innerText = data.reason || 'Optimal Move';
+  if (countEl) countEl.innerText = data.candidates_count;
+  if (badgeEl) badgeEl.innerText = `${data.candidates_count} words`;
+
+  if (pctEl) {
+    const pct = ((data.candidates_count / 2315) * 100).toFixed(1);
+    pctEl.innerText = `${pct}%`;
+  }
+
+  // Candidates Cloud
+  if (cloudEl) {
+    if (!data.candidates_sample || data.candidates_sample.length === 0) {
+      cloudEl.innerHTML = '<span class="text-xs text-rose-400">No matching words remaining</span>';
+    } else {
+      cloudEl.innerHTML = data.candidates_sample.map(w => `
+        <span class="px-2 py-0.5 rounded bg-slate-900 border border-slate-700 text-slate-300 text-xs font-mono font-medium hover:border-emerald-500 hover:text-white transition">
+          ${w.toUpperCase()}
+        </span>
+      `).join('');
+      if (data.candidates_count > data.candidates_sample.length) {
+        cloudEl.innerHTML += `<span class="text-xs text-slate-500 italic self-center ml-1">+${data.candidates_count - data.candidates_sample.length} more</span>`;
       }
     }
-  } catch (e) {
-    console.error('Error tracing helper pattern:', e);
+  }
+
+  // Path Trace
+  if (pathContainer && data.path) {
+    let html = '';
+    data.path.forEach(node => {
+      if (node.is_leaf) {
+        html += `
+          <div class="flex items-center space-x-2.5 p-2 bg-emerald-950/30 border border-emerald-500/40 rounded-lg text-xs">
+            <i class="fa-solid fa-check text-emerald-400"></i>
+            <div>
+              <span class="text-[10px] uppercase text-emerald-400 font-bold">Recommended Guess:</span>
+              <span class="font-black mono text-white ml-1">${node.recommended_guess}</span>
+            </div>
+          </div>
+        `;
+      } else {
+        html += `
+          <div class="flex items-center justify-between p-1.5 bg-slate-900/60 border border-slate-800 rounded text-xs">
+            <span class="text-slate-300 text-[11px]">${node.question}</span>
+            <span class="px-1.5 py-0.5 text-[9px] rounded bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30">MATCH</span>
+          </div>
+        `;
+      }
+    });
+    pathContainer.innerHTML = html;
   }
 }
 

@@ -98,11 +98,97 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(json.dumps(res).encode('utf-8'))
 
-        elif path == '/api/tree':
-            coloring = query.get('coloring', ['XXXXX'])[0].strip().upper()
+        elif path == '/api/tree' or path == '/api/helper':
+            raw_history = query.get('history', [''])[0].strip()
+            history_list = []
+            valid_chars = {'G', 'Y', 'X'}
+
+            if raw_history:
+                for entry in raw_history.split(','):
+                    if ':' in entry:
+                        g, c = entry.split(':', 1)
+                        g = g.strip().lower()
+                        c = ''.join(ch if ch in valid_chars else 'X' for ch in c.strip().upper())[:5].ljust(5, 'X')
+                        if len(g) == 5:
+                            history_list.append({'guess': g, 'coloring': c})
+            else:
+                coloring = query.get('coloring', ['XXXXX'])[0].strip().upper()
+                guess = query.get('guess', ['salet'])[0].strip().lower()
+                cleaned = ''.join(ch if ch in valid_chars else 'X' for ch in coloring)[:5].ljust(5, 'X')
+                if len(guess) == 5:
+                    history_list.append({'guess': guess, 'coloring': cleaned})
+
             try:
-                path_data = tree_policy.trace_path(coloring)
-                res = {'status': 'ok', 'coloring': coloring, 'path': path_data}
+                candidates = list(solver_instance.solutions)
+                for step in history_list:
+                    candidates = engine.filter_candidates(candidates, step['guess'], step['coloring'])
+
+                n = len(candidates)
+                recommended = ''
+                reason = ''
+                status = 'ok'
+
+                if n == 0:
+                    status = 'empty'
+                    recommended = 'NO MATCH'
+                    reason = 'No words match all clues. Please verify the coloring pattern of your guesses.'
+                elif n == 1:
+                    status = 'solved'
+                    recommended = candidates[0].upper()
+                    reason = f'100% Certain Solution ({candidates[0].upper()})! Game Solved.'
+                elif n == 2:
+                    status = 'progress'
+                    recommended = candidates[0].upper()
+                    reason = f'Two words remain: {candidates[0].upper()} or {candidates[1].upper()} (50% instant win chance).'
+                else:
+                    if len(history_list) == 1 and history_list[0]['guess'] == 'salet':
+                        first_col = history_list[0]['coloring']
+                        g2 = solver_instance.salet_g2.get(first_col)
+                        if g2:
+                            recommended = g2.upper()
+                            reason = 'MIT OCT-H Optimal Policy for SALET (Depth 8 Tree)'
+
+                    if not recommended:
+                        best_act = None
+                        best_ent = -1.0
+                        pool = candidates if n <= 5 else (candidates + solver_instance.all_guesses[:300])
+                        for g in pool:
+                            ent = solver_instance.calculate_entropy(candidates, g)
+                            in_state_bonus = 0.001 if g in candidates else 0.0
+                            if ent + in_state_bonus > best_ent:
+                                best_ent = ent + in_state_bonus
+                                best_act = g
+                        recommended = (best_act or candidates[0]).upper()
+                        reason = f'Optimal Information Discriminator (Entropy = {best_ent:.2f} bits)'
+
+                color_names = {'G': 'Green', 'Y': 'Yellow', 'X': 'Gray'}
+                last_col = history_list[-1]['coloring'] if history_list else 'XXXXX'
+                path_data = []
+                for pos, code in enumerate(last_col, start=1):
+                    cname = color_names.get(code, 'Gray')
+                    path_data.append({
+                        'node_id': pos - 1,
+                        'question': f'Tile {pos} is {cname}?',
+                        'evaluated_true': True,
+                        'tile_position': pos,
+                        'tile_color': cname.lower()
+                    })
+                path_data.append({
+                    'node_id': len(last_col),
+                    'is_leaf': True,
+                    'recommended_guess': recommended.upper()
+                })
+
+                res = {
+                    'status': status,
+                    'turn': len(history_list) + 1,
+                    'history': history_list,
+                    'recommended_guess': recommended,
+                    'reason': reason,
+                    'path': path_data,
+                    'candidates_count': n,
+                    'candidates_sample': [c.upper() for c in candidates[:60]]
+                }
             except Exception as e:
                 res = {'status': 'error', 'message': str(e)}
 
