@@ -161,6 +161,25 @@ function updateDiagnostics() {
     document.getElementById('step-clue-container').innerHTML = '';
     document.getElementById('candidate-count-badge').innerText = '2,315 words';
     document.getElementById('win-badge').classList.add('hidden');
+
+    // Process pipeline initialization
+    const elBefore = document.getElementById('proc-state-before');
+    if (elBefore) elBefore.innerText = '2,315 words';
+    const elAction = document.getElementById('proc-action-chosen');
+    if (elAction) elAction.innerText = '---';
+    const elActionSub = document.getElementById('proc-action-sub');
+    if (elActionSub) elActionSub.innerText = 'ready to start';
+    const elClue = document.getElementById('proc-clue-code');
+    if (elClue) elClue.innerText = '---';
+    const elParts = document.getElementById('proc-partitions-count');
+    if (elParts) elParts.innerText = '0 partitions';
+    const elAfter = document.getElementById('proc-state-after');
+    if (elAfter) elAfter.innerText = '2,315 words';
+    const elPrunedSub = document.getElementById('proc-pruned-sub');
+    if (elPrunedSub) elPrunedSub.innerText = '0 words pruned';
+    const elKnown = document.getElementById('proc-known-pattern');
+    if (elKnown) elKnown.innerText = 'Known: _ _ _ _ _';
+
     updateAlphabetTracker(null);
 
     // Initial partition message
@@ -180,6 +199,28 @@ function updateDiagnostics() {
 
   const step = currentSteps[currentStepIndex - 1];
   if (!step) return;
+
+  // Process pipeline updates (Grasp of true process)
+  const elBefore = document.getElementById('proc-state-before');
+  if (elBefore) elBefore.innerText = `${step.candidates_before_count.toLocaleString()} words`;
+  const elAction = document.getElementById('proc-action-chosen');
+  if (elAction) elAction.innerText = step.guess;
+  const elActionSub = document.getElementById('proc-action-sub');
+  if (elActionSub) elActionSub.innerText = step.solver_type === 'exact_dp' ? 'Optimal Bellman' : 'Heuristic move';
+  const elClue = document.getElementById('proc-clue-code');
+  if (elClue) elClue.innerText = step.coloring;
+  const elParts = document.getElementById('proc-partitions-count');
+  if (elParts) elParts.innerText = `${step.total_partitions} partitions`;
+  const elAfter = document.getElementById('proc-state-after');
+  if (elAfter) elAfter.innerText = `${step.candidates_after_count.toLocaleString()} words`;
+  const elPrunedSub = document.getElementById('proc-pruned-sub');
+  if (elPrunedSub) elPrunedSub.innerText = `-${step.eliminated_count} words (${step.reduction_pct}%)`;
+
+  const elKnown = document.getElementById('proc-known-pattern');
+  if (elKnown) {
+    const knownLetters = step.known_pattern ? step.known_pattern.join(' ') : '_ _ _ _ _';
+    elKnown.innerText = `Known: ${knownLetters}`;
+  }
 
   // Numerical metrics
   document.getElementById('stat-candidates').innerText = step.candidates_after_count.toLocaleString();

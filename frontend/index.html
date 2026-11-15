@@ -141,66 +141,97 @@
           </div>
         </div>
 
-        <!-- Right: Backend Execution & Decision Inspector (7 cols) -->
+        <!-- Right: Algorithmic State Transition & Decision Inspector (7 cols) -->
         <div class="lg:col-span-7 space-y-4">
 
-          <!-- Card 1: Backend Decision & Algorithmic Reasoning -->
-          <div class="bg-[#141824] border border-slate-800 rounded-xl p-5 shadow-lg">
-            <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-3">
-              <h2 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                <i class="fa-solid fa-microchip text-emerald-400"></i> Backend Decision Inspector
-              </h2>
+          <!-- Card 1: True Process Flow & Algorithmic Decision -->
+          <div class="bg-[#141824] border border-slate-800 rounded-xl p-5 shadow-lg space-y-4">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-bold uppercase tracking-wider text-slate-300">
+                  Step Process: State Transition & Decision Rule
+                </span>
+              </div>
               <div id="step-clue-container" class="flex items-center space-x-1 font-mono text-xs">
                 <!-- Color clue boxes rendered via JS -->
               </div>
             </div>
 
-            <div class="p-3 bg-slate-900/80 rounded-lg border border-slate-800">
-              <div class="text-[11px] font-semibold text-emerald-400 uppercase tracking-wide flex items-center gap-1.5 mb-1">
-                <i class="fa-solid fa-circle-info"></i> Why this guess was chosen:
+            <!-- Systematic Process Chain: 4 Connected Stages -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
+              <div class="bg-slate-900/90 p-2.5 rounded-lg border border-slate-800 space-y-1">
+                <div class="text-[10px] uppercase font-bold text-slate-500">1. State Before (|s_t|)</div>
+                <div id="proc-state-before" class="text-sm font-bold text-white mono">2,315 words</div>
+                <div class="text-[10px] text-slate-400">active pool</div>
               </div>
-              <p id="backend-reason-text" class="text-xs text-slate-300 leading-relaxed font-sans">
-                Waiting for simulation to start...
+
+              <div class="bg-slate-900/90 p-2.5 rounded-lg border border-slate-800 space-y-1">
+                <div class="text-[10px] uppercase font-bold text-slate-500">2. Action Chosen (a_t)</div>
+                <div id="proc-action-chosen" class="text-sm font-bold text-white mono">---</div>
+                <div id="proc-action-sub" class="text-[10px] text-slate-400">optimal move</div>
+              </div>
+
+              <div class="bg-slate-900/90 p-2.5 rounded-lg border border-slate-800 space-y-1">
+                <div class="text-[10px] uppercase font-bold text-slate-500">3. Clue Observed</div>
+                <div id="proc-clue-code" class="text-sm font-bold text-white mono">---</div>
+                <div id="proc-partitions-count" class="text-[10px] text-slate-400">0 partitions</div>
+              </div>
+
+              <div class="bg-slate-900/90 p-2.5 rounded-lg border border-slate-800 space-y-1">
+                <div class="text-[10px] uppercase font-bold text-slate-500">4. State After (|s_t+1|)</div>
+                <div id="proc-state-after" class="text-sm font-bold text-white mono">2,315 words</div>
+                <div id="proc-pruned-sub" class="text-[10px] text-slate-400">0 words pruned</div>
+              </div>
+            </div>
+
+            <!-- Mathematical Decision Reasoning -->
+            <div class="p-3.5 bg-slate-900/90 rounded-lg border border-slate-800 text-xs">
+              <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center justify-between">
+                <span>Algorithmic Rationale:</span>
+                <span id="proc-known-pattern" class="font-mono text-white text-xs">Known: _ _ _ _ _</span>
+              </div>
+              <p id="backend-reason-text" class="text-slate-300 leading-relaxed font-sans mt-1">
+                Simulation initialized with full 2,315-word vocabulary. Ready to execute first guess.
               </p>
             </div>
           </div>
 
-          <!-- Card 2: Search Space Reduction & Core Metrics -->
+          <!-- Card 2: Search Space Reduction & Pruning Metrics (Clean Neutral Theme) -->
           <div class="bg-[#141824] border border-slate-800 rounded-xl p-5 shadow-lg space-y-4">
             <div class="flex items-center justify-between pb-2 border-b border-slate-800">
-              <h2 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                <i class="fa-solid fa-filter text-indigo-400"></i> Search Space Pruning
+              <h2 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                Search Space Elimination
               </h2>
-              <span id="reduction-pct-badge" class="text-xs font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+              <span id="reduction-pct-badge" class="text-xs font-mono font-bold text-white bg-slate-800 px-2.5 py-0.5 rounded border border-slate-700">
                 0% Pruned
               </span>
             </div>
 
-            <!-- Visual Collapse Progress Bar -->
-            <div class="w-full bg-slate-900 rounded-full h-3 border border-slate-800 overflow-hidden">
-              <div id="space-collapse-bar" class="bg-gradient-to-r from-emerald-500 to-indigo-500 h-3 rounded-full transition-all duration-500" style="width: 0%"></div>
+            <!-- Clean Single-Color Solid Progress Bar (Not Rainbow Gradient) -->
+            <div class="w-full bg-slate-900 rounded-full h-2.5 border border-slate-800 overflow-hidden">
+              <div id="space-collapse-bar" class="bg-[#538d4e] h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
             </div>
 
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div class="bg-slate-900/80 p-3 rounded-lg border border-slate-800">
-                <div class="text-[10px] uppercase font-bold text-slate-500">Remaining</div>
-                <div id="stat-candidates" class="text-xl font-bold text-white mono mt-1">2,315</div>
-                <div class="text-[10px] text-slate-400 mt-0.5">possible words</div>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+              <div class="bg-slate-900/80 p-2.5 rounded-lg border border-slate-800">
+                <div class="text-[10px] uppercase font-bold text-slate-500">Remaining Words</div>
+                <div id="stat-candidates" class="text-lg font-bold text-white mono mt-0.5">2,315</div>
+                <div class="text-[10px] text-slate-400 mt-0.5">candidate pool</div>
               </div>
-              <div class="bg-slate-900/80 p-3 rounded-lg border border-slate-800">
-                <div class="text-[10px] uppercase font-bold text-slate-500">Eliminated</div>
-                <div id="stat-eliminated" class="text-xl font-bold text-rose-400 mono mt-1">0</div>
-                <div class="text-[10px] text-slate-400 mt-0.5">in this step</div>
+              <div class="bg-slate-900/80 p-2.5 rounded-lg border border-slate-800">
+                <div class="text-[10px] uppercase font-bold text-slate-500">Words Eliminated</div>
+                <div id="stat-eliminated" class="text-lg font-bold text-slate-300 mono mt-0.5">0</div>
+                <div class="text-[10px] text-slate-400 mt-0.5">this turn</div>
               </div>
-              <div class="bg-slate-900/80 p-3 rounded-lg border border-slate-800">
+              <div class="bg-slate-900/80 p-2.5 rounded-lg border border-slate-800">
                 <div class="text-[10px] uppercase font-bold text-slate-500">Information Gain</div>
-                <div id="stat-entropy" class="text-xl font-bold text-indigo-400 mono mt-1">0.00</div>
-                <div class="text-[10px] text-slate-400 mt-0.5">Shannon bits</div>
+                <div id="stat-entropy" class="text-lg font-bold text-white mono mt-0.5">0.00</div>
+                <div class="text-[10px] text-slate-400 mt-0.5">Shannon bits (H)</div>
               </div>
-              <div class="bg-slate-900/80 p-3 rounded-lg border border-slate-800">
+              <div class="bg-slate-900/80 p-2.5 rounded-lg border border-slate-800">
                 <div class="text-[10px] uppercase font-bold text-slate-500">Expected Guesses</div>
-                <div id="stat-value" class="text-xl font-bold text-amber-400 mono mt-1">3.42</div>
-                <div class="text-[10px] text-slate-400 mt-0.5">remaining cost</div>
+                <div id="stat-value" class="text-lg font-bold text-white mono mt-0.5">3.42</div>
+                <div class="text-[10px] text-slate-400 mt-0.5">Bellman value (V*)</div>
               </div>
             </div>
           </div>
@@ -208,13 +239,13 @@
           <!-- Card 3: Deduction & Alphabet State Tracker (A-Z) -->
           <div class="bg-[#141824] border border-slate-800 rounded-xl p-5 shadow-lg">
             <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-3">
-              <h2 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                <i class="fa-solid fa-keyboard text-emerald-400"></i> Backend Knowledge Tracker (Alphabet A-Z)
+              <h2 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                Letter Deduction Knowledge (Alphabet A-Z)
               </h2>
               <div class="flex items-center space-x-2 text-[10px] text-slate-400 font-medium">
                 <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-wordle-green inline-block"></span> Position Locked</span>
                 <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-wordle-yellow inline-block"></span> Present</span>
-                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-[#1f232d] inline-block border border-slate-700"></span> Eliminated</span>
+                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-[#1a1e2d] inline-block border border-slate-700"></span> Eliminated</span>
               </div>
             </div>
 
@@ -229,8 +260,8 @@
             
             <!-- Partition Breakdown -->
             <div class="bg-[#141824] border border-slate-800 rounded-xl p-4 shadow-lg">
-              <h3 class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5 pb-2 border-b border-slate-800 mb-2">
-                <i class="fa-solid fa-chart-pie text-indigo-400"></i> Active Partitions
+              <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5 pb-2 border-b border-slate-800 mb-2">
+                Active Partition Splits
               </h3>
               <div id="partitions-container" class="space-y-1.5 max-h-36 overflow-y-auto">
                 <div class="text-xs text-slate-500 text-center py-4">Execute a guess to inspect partitions.</div>
@@ -240,10 +271,10 @@
             <!-- Remaining Viable Candidates Cloud -->
             <div class="bg-[#141824] border border-slate-800 rounded-xl p-4 shadow-lg">
               <div class="flex items-center justify-between pb-2 border-b border-slate-800 mb-2">
-                <h3 class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
-                  <i class="fa-solid fa-list-check text-emerald-400"></i> Surviving Words
+                <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                  Surviving Candidate Words
                 </h3>
-                <span id="candidate-count-badge" class="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">
+                <span id="candidate-count-badge" class="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
                   2,315 words
                 </span>
               </div>
