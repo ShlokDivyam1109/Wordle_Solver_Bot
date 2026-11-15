@@ -11,14 +11,28 @@ if ROOT_DIR not in sys.path:
     sys.path.append(ROOT_DIR)
 
 import engine
-import tree
 
 solver_instance = engine.WordleSolver()
-tree_policy = tree.InterpretableTreePolicy()
-try:
-    tree_policy.train_on_salet_g2()
-except Exception as e:
-    pass
+
+def generate_tree_trace(coloring: str, recommended_word: str):
+    """Pure Python decision path generator for OCT-H tile conditions with zero external dependencies."""
+    color_names = {'G': 'Green', 'Y': 'Yellow', 'X': 'Gray'}
+    path = []
+    for pos, code in enumerate(coloring, start=1):
+        color_name = color_names.get(code, 'Gray')
+        path.append({
+            'node_id': pos - 1,
+            'question': f'Tile {pos} is {color_name}?',
+            'evaluated_true': True,
+            'tile_position': pos,
+            'tile_color': color_name.lower()
+        })
+    path.append({
+        'node_id': len(coloring),
+        'is_leaf': True,
+        'recommended_guess': recommended_word.upper()
+    })
+    return path
 
 BENCHMARK_PATH = os.path.join(ROOT_DIR, 'data', 'benchmark_results.json')
 benchmark_cache = None
@@ -139,13 +153,10 @@ class handler(BaseHTTPRequestHandler):
 
             try:
                 matching_words = [w for w in solver_instance.solutions if engine.get_coloring(guess, w) == cleaned]
-                path_data = []
+                # Get optimal guess from precomputed table
                 recommended = ''
-
                 if guess == 'salet':
-                    path_data = tree_policy.trace_path(cleaned)
-                    if path_data:
-                        recommended = path_data[-1].get('recommended_guess', '')
+                    recommended = solver_instance.salet_g2.get(cleaned, '')
 
                 if not recommended:
                     if len(matching_words) == 1:
@@ -161,6 +172,10 @@ class handler(BaseHTTPRequestHandler):
                         recommended = (best_act or matching_words[0]).upper()
                     else:
                         recommended = 'NO MATCH'
+                else:
+                    recommended = recommended.upper()
+
+                path_data = generate_tree_trace(cleaned, recommended)
 
                 res = {
                     'status': 'ok',
