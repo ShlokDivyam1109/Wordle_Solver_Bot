@@ -63,26 +63,6 @@ def get_coloring(guess: str, secret: str) -> str:
     mapping = {0: 'X', 1: 'Y', 2: 'G'}
     return ''.join(mapping[r] for r in res)
 
-
-def coloring_to_int(coloring: str) -> int:
-    """Encodes a 5-tile coloring string ('G', 'Y', 'X') into a base-3 int in [0, 242]."""
-    val = 0
-    char_map = {'X': 0, 'Y': 1, 'G': 2}
-    for ch in coloring:
-        val = val * 3 + char_map[ch]
-    return val
-
-
-def int_to_coloring(val: int) -> str:
-    """Decodes a base-3 int in [0, 242] back into a 5-tile coloring string."""
-    res = []
-    char_map = {0: 'X', 1: 'Y', 2: 'G'}
-    for _ in range(5):
-        res.append(char_map[val % 3])
-        val //= 3
-    return ''.join(reversed(res))
-
-
 def filter_candidates(candidates: List[str], guess: str, coloring: str) -> List[str]:
     """Filters candidate solution words given a guess and its observed coloring."""
     return [w for w in candidates if get_coloring(guess, w) == coloring]
