@@ -49,9 +49,6 @@ Based on the MIT research paper (*Bertsimas & Paskov*), Wordle is modeled as a *
 5. **Key Finding:**
    The algorithm proves that **`SALET`** is the globally optimal opening word, achieving an average of **3.421 guesses** and solving every word in $\le 5$ guesses (never losing or needing the 6th guess).
 
-## Project Structure
-
-See [`docs/HIGH_LEVEL_DESIGN.md`](docs/HIGH_LEVEL_DESIGN.md) for the full high-level design document.
 
 ## Live Dashboard
 
