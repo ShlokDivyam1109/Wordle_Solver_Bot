@@ -379,25 +379,202 @@ function setSpeed(ms, btn) {
   }
 }
 
-// Words Helpers
+// Words Helpers & Vocabulary Checker
+let wordleSolutions = new Set();
+let wordleOtherGuesses = new Set();
+let isVocabularyLoaded = false;
+let validateDebounceTimer = null;
+
+async function loadVocabulary() {
+  try {
+    const res = await fetch('/api/vocabulary');
+    const data = await res.json();
+    if (data.status === 'ok') {
+      wordleSolutions = new Set((data.solutions || []).map(w => w.toLowerCase()));
+      wordleOtherGuesses = new Set((data.other_guesses || []).map(w => w.toLowerCase()));
+      isVocabularyLoaded = true;
+      const inputEl = document.getElementById('target-word-input');
+      if (inputEl) {
+        handleTargetWordInput(inputEl.value);
+      }
+    }
+  } catch (e) {
+    console.warn('Vocabulary preload failed, fallback to /api/validate:', e);
+  }
+}
+
+function checkWordStatus(word) {
+  const w = (word || '').trim().toLowerCase();
+  if (w.length !== 5 || !/^[a-z]{5}$/.test(w)) {
+    return {
+      canPredict: false,
+      status: 'invalid_length',
+      message: w.length === 0 ? 'Type a 5-letter target word' : `Enter 5 letters (${w.length}/5)...`,
+      color: 'slate'
+    };
+  }
+
+  if (isVocabularyLoaded) {
+    if (wordleSolutions.has(w)) {
+      return {
+        canPredict: true,
+        status: 'valid_solution',
+        message: 'Solvable by AI (Official Wordle Solution)',
+        color: 'green'
+      };
+    } else if (wordleOtherGuesses.has(w)) {
+      return {
+        canPredict: false,
+        status: 'guess_only',
+        message: 'Allowable guess, but NOT a secret answer (AI cannot predict)',
+        color: 'yellow'
+      };
+    } else {
+      return {
+        canPredict: false,
+        status: 'invalid_word',
+        message: 'Not in Wordle dictionary (AI cannot guess)',
+        color: 'red'
+      };
+    }
+  }
+
+  return {
+    canPredict: true,
+    status: 'checking',
+    message: 'Verifying in dictionary...',
+    color: 'slate'
+  };
+}
+
+function handleTargetWordInput(rawVal) {
+  const inputEl = document.getElementById('target-word-input');
+  const badgeEl = document.getElementById('word-checker-badge');
+  if (!inputEl || !badgeEl) return;
+
+  const cleanVal = (rawVal || '').replace(/[^a-zA-Z]/g, '').slice(0, 5).toUpperCase();
+  if (inputEl.value !== cleanVal) {
+    inputEl.value = cleanVal;
+  }
+
+  const result = checkWordStatus(cleanVal);
+
+  inputEl.classList.remove('border-[#538d4e]', 'border-[#b59f3b]', 'border-red-500', 'border-slate-700', 'text-[#538d4e]', 'text-[#b59f3b]', 'text-red-400', 'text-slate-300');
+
+  if (result.color === 'green') {
+    inputEl.classList.add('border-[#538d4e]', 'text-[#538d4e]');
+    badgeEl.innerHTML = `<span class="text-[#538d4e] flex items-center gap-1 font-semibold"><i class="fa-solid fa-circle-check"></i> ${result.message}</span>`;
+  } else if (result.color === 'yellow') {
+    inputEl.classList.add('border-[#b59f3b]', 'text-[#b59f3b]');
+    badgeEl.innerHTML = `<span class="text-[#b59f3b] flex items-center gap-1 font-semibold"><i class="fa-solid fa-triangle-exclamation"></i> ${result.message}</span>`;
+  } else if (result.color === 'red') {
+    inputEl.classList.add('border-red-500', 'text-red-400');
+    badgeEl.innerHTML = `<span class="text-rose-400 flex items-center gap-1 font-semibold"><i class="fa-solid fa-circle-xmark"></i> ${result.message}</span>`;
+  } else {
+    inputEl.classList.add('border-slate-700', 'text-slate-300');
+    badgeEl.innerHTML = `<span class="text-slate-400 flex items-center gap-1 font-mono">${result.message}</span>`;
+  }
+
+  if (!isVocabularyLoaded && cleanVal.length === 5) {
+    clearTimeout(validateDebounceTimer);
+    validateDebounceTimer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/validate?word=${cleanVal.toLowerCase()}`);
+        const data = await res.json();
+        inputEl.classList.remove('border-slate-700', 'text-slate-300', 'border-[#538d4e]', 'border-[#b59f3b]', 'border-red-500', 'text-[#538d4e]', 'text-[#b59f3b]', 'text-red-400');
+        if (data.can_predict) {
+          inputEl.classList.add('border-[#538d4e]', 'text-[#538d4e]');
+          badgeEl.innerHTML = `<span class="text-[#538d4e] flex items-center gap-1 font-semibold"><i class="fa-solid fa-circle-check"></i> ${data.message}</span>`;
+        } else if (data.in_guesses) {
+          inputEl.classList.add('border-[#b59f3b]', 'text-[#b59f3b]');
+          badgeEl.innerHTML = `<span class="text-[#b59f3b] flex items-center gap-1 font-semibold"><i class="fa-solid fa-triangle-exclamation"></i> ${data.message}</span>`;
+        } else {
+          inputEl.classList.add('border-red-500', 'text-red-400');
+          badgeEl.innerHTML = `<span class="text-rose-400 flex items-center gap-1 font-semibold"><i class="fa-solid fa-circle-xmark"></i> ${data.message}</span>`;
+        }
+      } catch (e) {
+        console.error('Validation API error:', e);
+      }
+    }, 150);
+  }
+}
+
+function shakeElement(el) {
+  if (!el) return;
+  el.classList.remove('shake');
+  void el.offsetWidth;
+  el.classList.add('shake');
+}
+
+function showSimError(title, msg) {
+  const banner = document.getElementById('sim-error-banner');
+  const titleEl = document.getElementById('sim-error-title');
+  const msgEl = document.getElementById('sim-error-msg');
+  if (banner && titleEl && msgEl) {
+    titleEl.innerText = title;
+    msgEl.innerText = msg;
+    banner.classList.remove('hidden');
+    banner.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+}
+
+function dismissSimError() {
+  const banner = document.getElementById('sim-error-banner');
+  if (banner) banner.classList.add('hidden');
+}
+
 function setWord(w) {
-  document.getElementById('target-word-input').value = w.toUpperCase();
+  const inputEl = document.getElementById('target-word-input');
+  if (inputEl) {
+    inputEl.value = w.toUpperCase();
+    handleTargetWordInput(w);
+  }
+  dismissSimError();
   applyCustomWord();
 }
 
 function applyCustomWord() {
-  const val = document.getElementById('target-word-input').value.trim().toLowerCase();
-  if (val.length === 5) {
-    currentSecret = val;
-    fetchSimulation();
+  const inputEl = document.getElementById('target-word-input');
+  const val = (inputEl ? inputEl.value : '').trim().toLowerCase();
+
+  if (val.length !== 5) {
+    shakeElement(inputEl);
+    showSimError('Invalid Word Length', 'Please enter a 5-letter word to simulate.');
+    return;
   }
+
+  const check = checkWordStatus(val);
+  if (!check.canPredict) {
+    shakeElement(inputEl);
+    if (check.status === 'guess_only') {
+      showSimError(
+        `Cannot Simulate '${val.toUpperCase()}'`,
+        `'${val.toUpperCase()}' is in the allowable guess list, but is NOT one of the 2,315 official Wordle secret answers. The AI solver's candidate space only searches over official solutions.`
+      );
+    } else {
+      showSimError(
+        `Cannot Simulate '${val.toUpperCase()}'`,
+        `'${val.toUpperCase()}' is not recognized in the official Wordle vocabulary (neither in solutions nor allowable guesses).`
+      );
+    }
+    return;
+  }
+
+  dismissSimError();
+  currentSecret = val;
+  fetchSimulation();
 }
 
 async function pickRandomWord() {
   try {
     const res = await fetch('/api/random');
     const data = await res.json();
-    document.getElementById('target-word-input').value = data.word.toUpperCase();
+    const inputEl = document.getElementById('target-word-input');
+    if (inputEl) {
+      inputEl.value = data.word.toUpperCase();
+      handleTargetWordInput(data.word);
+    }
+    dismissSimError();
     currentSecret = data.word.toLowerCase();
     fetchSimulation();
   } catch (e) {
@@ -412,6 +589,16 @@ async function fetchSimulation() {
   try {
     const res = await fetch(`/api/simulate?secret=${currentSecret}&solver=${solver}`);
     const data = await res.json();
+
+    if (data.status === 'error') {
+      showSimError(`Simulation Error (${data.error_type || 'Error'})`, data.message);
+      currentSteps = [];
+      currentComparison = null;
+      resetPlayback();
+      return;
+    }
+
+    dismissSimError();
     currentSteps = data.steps || [];
     currentComparison = data.comparison || null;
 
@@ -421,6 +608,7 @@ async function fetchSimulation() {
     resetPlayback();
   } catch (e) {
     console.error('Error fetching simulation:', e);
+    showSimError('Server Communication Error', 'Failed to fetch simulation from backend.');
   }
 }
 
@@ -878,5 +1066,8 @@ function renderHelperDiagnostics(data) {
 window.addEventListener('DOMContentLoaded', () => {
   initBoard();
   initAlphabetTracker();
+  loadVocabulary();
+  const inputEl = document.getElementById('target-word-input');
+  if (inputEl) handleTargetWordInput(inputEl.value);
   fetchSimulation();
 });

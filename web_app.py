@@ -12,14 +12,11 @@ import json
 import urllib.parse
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import engine
-import tree
 
 PORT = 8080
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'frontend')
 
 solver_instance = engine.WordleSolver()
-tree_policy = tree.InterpretableTreePolicy()
-tree_policy.train_on_salet_g2()
 
 BENCHMARK_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'benchmark_results.json')
 benchmark_cache = None
@@ -70,16 +67,85 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         # API Endpoints
         elif path == '/api/simulate':
-            secret = query.get('secret', ['VIXEN'])[0].strip().lower()
+            secret = query.get('secret', ['CIGAR'])[0].strip().lower()
             solver_type = query.get('solver', ['exact_dp'])[0].strip().lower()
 
-            try:
-                steps = solver_instance.simulate_step_by_step(secret, solver_type)
-                comparison = solver_instance.compare_all_solvers(secret)
-                res = {'status': 'ok', 'secret': secret, 'steps': steps, 'comparison': comparison}
-            except Exception as e:
-                res = {'status': 'error', 'message': str(e)}
+            if len(secret) != 5:
+                res = {
+                    'status': 'error',
+                    'error_type': 'invalid_length',
+                    'message': f"'{secret.upper()}' must be exactly 5 letters."
+                }
+            elif secret not in solver_instance.solution_set:
+                in_guesses = secret in solver_instance.all_guesses_set
+                res = {
+                    'status': 'error',
+                    'error_type': 'not_in_solutions',
+                    'word': secret.upper(),
+                    'can_predict': False,
+                    'in_solutions': False,
+                    'in_guesses': in_guesses,
+                    'message': (
+                        f"'{secret.upper()}' is an allowable guess word, but NOT in the 2,315 official Wordle solutions. "
+                        f"The AI solver cannot predict this word as a target."
+                        if in_guesses else
+                        f"'{secret.upper()}' is not recognized in the official Wordle dictionary."
+                    )
+                }
+            else:
+                try:
+                    steps = solver_instance.simulate_step_by_step(secret, solver_type)
+                    comparison = solver_instance.compare_all_solvers(secret)
+                    res = {'status': 'ok', 'secret': secret, 'steps': steps, 'comparison': comparison}
+                except Exception as e:
+                    res = {'status': 'error', 'message': str(e)}
 
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps(res).encode('utf-8'))
+
+        elif path == '/api/validate':
+            word = query.get('word', [''])[0].strip().lower()
+            is_5 = len(word) == 5 and word.isalpha()
+            in_solutions = word in solver_instance.solution_set
+            in_guesses = word in solver_instance.all_guesses_set
+            can_predict = in_solutions
+
+            if not is_5:
+                status = 'invalid_length'
+                msg = 'Please enter a 5-letter word'
+            elif can_predict:
+                status = 'valid_solution'
+                msg = f"'{word.upper()}' is solvable by AI (Official Wordle Solution)"
+            elif in_guesses:
+                status = 'guess_only'
+                msg = f"'{word.upper()}' is an allowable guess, but NOT a secret answer (AI cannot predict)"
+            else:
+                status = 'invalid_word'
+                msg = f"'{word.upper()}' is not recognized in Wordle dictionary"
+
+            res = {
+                'status': status,
+                'word': word.upper(),
+                'is_5_letters': is_5,
+                'in_solutions': in_solutions,
+                'in_guesses': in_guesses,
+                'can_predict': can_predict,
+                'message': msg
+            }
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps(res).encode('utf-8'))
+
+        elif path == '/api/vocabulary':
+            other_guesses = [w for w in solver_instance.all_guesses if w not in solver_instance.solution_set]
+            res = {
+                'status': 'ok',
+                'solutions': solver_instance.solutions,
+                'other_guesses': other_guesses
+            }
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
             self.end_headers()

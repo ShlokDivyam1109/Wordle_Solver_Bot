@@ -49,26 +49,32 @@
       <!-- Top Control Bar -->
       <div class="bg-[#141824] border border-slate-800 rounded-xl p-4 shadow-lg flex flex-wrap items-center justify-between gap-4">
         
-        <!-- Target Word Selection -->
-        <div class="flex flex-wrap items-center gap-3">
-          <div class="flex items-center space-x-2">
-            <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Hidden Word:</label>
-            <div class="relative">
-              <input id="target-word-input" type="text" maxlength="5" value="CIGAR" 
-                     class="w-28 px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-sm font-bold text-center tracking-widest uppercase text-emerald-400 focus:outline-none focus:border-emerald-500 mono"
-                     onkeyup="if(event.key==='Enter') applyCustomWord()">
-              <button onclick="applyCustomWord()" class="absolute right-1 top-1.5 text-slate-400 hover:text-white px-1.5 text-xs" title="Apply Word">
-                <i class="fa-solid fa-arrow-right"></i>
+        <!-- Target Word Selection & Real-Time Vocabulary Checker -->
+        <div class="flex flex-wrap items-center gap-4">
+          <div class="flex flex-col gap-1">
+            <div class="flex items-center space-x-2">
+              <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Hidden Word:</label>
+              <div class="relative">
+                <input id="target-word-input" type="text" maxlength="5" value="CIGAR" 
+                       class="w-28 px-3 py-1.5 bg-slate-900 border border-[#538d4e] rounded-lg text-sm font-bold text-center tracking-widest uppercase text-[#538d4e] focus:outline-none mono transition-all"
+                       oninput="handleTargetWordInput(this.value)"
+                       onkeyup="if(event.key==='Enter') applyCustomWord()">
+                <button id="apply-word-btn" onclick="applyCustomWord()" class="absolute right-1 top-1.5 text-slate-400 hover:text-white px-1.5 text-xs transition" title="Apply Word">
+                  <i class="fa-solid fa-arrow-right"></i>
+                </button>
+              </div>
+              <button onclick="pickRandomWord()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs font-medium text-slate-200 transition flex items-center gap-1.5 shadow-sm">
+                <i class="fa-solid fa-shuffle text-emerald-400"></i> Random Word
               </button>
+            </div>
+            <!-- Word Checker Live Status Badge -->
+            <div id="word-checker-badge" class="flex items-center gap-1 text-[11px] font-medium transition-all min-h-[16px] pl-[92px]">
+              <span class="text-[#538d4e] flex items-center gap-1 font-semibold"><i class="fa-solid fa-circle-check"></i> Solvable by AI (In 2,315 solutions)</span>
             </div>
           </div>
 
-          <button onclick="pickRandomWord()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs font-medium text-slate-200 transition flex items-center gap-1.5 shadow-sm">
-            <i class="fa-solid fa-shuffle text-emerald-400"></i> Random Word
-          </button>
-
           <!-- Quick Test Words -->
-          <div class="flex items-center space-x-1.5 pl-2 border-l border-slate-800">
+          <div class="flex items-center space-x-1.5 pl-3 border-l border-slate-800 self-start pt-1">
             <span class="text-xs text-slate-500 mr-1">Presets:</span>
             <button onclick="setWord('CIGAR')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-xs font-mono font-semibold">CIGAR</button>
             <button onclick="setWord('LIGHT')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-xs font-mono font-semibold">LIGHT</button>
@@ -89,6 +95,18 @@
             <option value="random">Random Candidate Selection</option>
           </select>
         </div>
+      </div>
+
+      <!-- Simulation Error / Non-Solution Warning Banner (Hidden by default) -->
+      <div id="sim-error-banner" class="hidden bg-rose-950/40 border border-rose-500/50 rounded-xl p-3.5 text-xs text-rose-200 flex items-start gap-3">
+        <i class="fa-solid fa-triangle-exclamation text-rose-400 text-base mt-0.5"></i>
+        <div class="flex-1">
+          <div class="font-bold text-rose-300" id="sim-error-title">Cannot Simulate Target Word</div>
+          <div class="text-rose-200/90 mt-0.5" id="sim-error-msg"></div>
+        </div>
+        <button onclick="dismissSimError()" class="text-rose-400 hover:text-white text-xs px-2 py-1 rounded bg-rose-900/40">
+          Dismiss
+        </button>
       </div>
 
       <!-- Main Layout: Board & Controls (Left) + Backend Engine Inspector (Right) -->

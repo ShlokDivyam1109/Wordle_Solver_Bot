@@ -103,6 +103,16 @@ body {
   animation: winPulse 0.8s ease-in-out infinite alternate;
 }
 
+/* Shake animation for invalid word input */
+@keyframes shakeInput {
+  0%, 100% { transform: translateX(0); }
+  15%, 45%, 75% { transform: translateX(-5px); }
+  30%, 60%, 90% { transform: translateX(5px); }
+}
+.shake {
+  animation: shakeInput 0.4s ease-in-out;
+}
+
 /* Custom scrollbars */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: #141824; }

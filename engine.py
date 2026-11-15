@@ -106,6 +106,7 @@ class WordleSolver:
     def __init__(self):
         self.solutions, self.all_guesses = load_word_lists()
         self.solution_set = set(self.solutions)
+        self.all_guesses_set = set(self.all_guesses)
         self.salet_g2: Dict[str, str] = {}
         self.salet_policy: Dict[str, Any] = {}
         self.V_memory: Dict[Tuple[Tuple[str, ...], int], float] = {}
@@ -407,7 +408,16 @@ class WordleSolver:
 
     def compare_all_solvers(self, secret: str) -> Dict[str, Any]:
         """Runs and compares all 5 solvers on the exact secret word."""
-        secret = secret.lower()
+        secret = secret.strip().lower()
+        if len(secret) != 5:
+            raise ValueError(f"Secret '{secret.upper()}' must be exactly 5 letters.")
+        if secret not in self.solution_set:
+            in_guesses = secret in self.all_guesses_set
+            if in_guesses:
+                raise ValueError(f"'{secret.upper()}' is an allowable guess word, but NOT one of the 2,315 official Wordle secret answers.")
+            else:
+                raise ValueError(f"'{secret.upper()}' is not in the official Wordle dictionary.")
+
         solvers = [
             ('exact_dp', 'Exact Dynamic Programming (Optimal)', 'SALET', 'Certifiably Optimal', self.solve_exact_dp),
             ('entropy', 'Shannon Entropy Greedy', 'SOARE', '1-Step Information Greedy', self.solve_entropy_greedy),
@@ -448,7 +458,16 @@ class WordleSolver:
         """
         Produces detailed step-by-step game progression data with backend reasoning and alphabet deductions.
         """
-        secret = secret.lower()
+        secret = secret.strip().lower()
+        if len(secret) != 5:
+            raise ValueError(f"Secret '{secret.upper()}' must be exactly 5 letters.")
+        if secret not in self.solution_set:
+            in_guesses = secret in self.all_guesses_set
+            if in_guesses:
+                raise ValueError(f"'{secret.upper()}' is an allowable guess word, but NOT one of the 2,315 official Wordle secret answers. The AI solver cannot simulate a target outside its solution space.")
+            else:
+                raise ValueError(f"'{secret.upper()}' is not recognized in the official Wordle dictionary.")
+
         if solver_type == 'exact_dp':
             path = self.solve_exact_dp(secret)
         elif solver_type == 'entropy':

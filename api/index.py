@@ -116,18 +116,79 @@ class handler(BaseHTTPRequestHandler):
         if 'simulate' in full_target:
             secret = query.get('secret', ['CIGAR'])[0].strip().lower()
             solver_type = query.get('solver', ['exact_dp'])[0].strip().lower()
-            try:
-                steps = solver_instance.simulate_step_by_step(secret, solver_type)
-                comparison = solver_instance.compare_all_solvers(secret)
+
+            if len(secret) != 5:
                 res = {
-                    'status': 'ok',
-                    'secret': secret,
-                    'steps': steps,
-                    'comparison': comparison
+                    'status': 'error',
+                    'error_type': 'invalid_length',
+                    'message': f"'{secret.upper()}' must be exactly 5 letters."
                 }
-            except Exception as e:
-                status_code = 500
-                res = {'status': 'error', 'message': str(e)}
+            elif secret not in solver_instance.solution_set:
+                in_guesses = secret in solver_instance.all_guesses_set
+                res = {
+                    'status': 'error',
+                    'error_type': 'not_in_solutions',
+                    'word': secret.upper(),
+                    'can_predict': False,
+                    'in_solutions': False,
+                    'in_guesses': in_guesses,
+                    'message': (
+                        f"'{secret.upper()}' is an allowable guess word, but NOT in the 2,315 official Wordle solutions. "
+                        f"The AI solver cannot predict this word as a target."
+                        if in_guesses else
+                        f"'{secret.upper()}' is not recognized in the official Wordle dictionary."
+                    )
+                }
+            else:
+                try:
+                    steps = solver_instance.simulate_step_by_step(secret, solver_type)
+                    comparison = solver_instance.compare_all_solvers(secret)
+                    res = {
+                        'status': 'ok',
+                        'secret': secret,
+                        'steps': steps,
+                        'comparison': comparison
+                    }
+                except Exception as e:
+                    res = {'status': 'error', 'message': str(e)}
+
+        elif 'validate' in full_target:
+            word = query.get('word', [''])[0].strip().lower()
+            is_5 = len(word) == 5 and word.isalpha()
+            in_solutions = word in solver_instance.solution_set
+            in_guesses = word in solver_instance.all_guesses_set
+            can_predict = in_solutions
+
+            if not is_5:
+                status = 'invalid_length'
+                msg = 'Please enter a 5-letter word'
+            elif can_predict:
+                status = 'valid_solution'
+                msg = f"'{word.upper()}' is solvable by AI (Official Wordle Solution)"
+            elif in_guesses:
+                status = 'guess_only'
+                msg = f"'{word.upper()}' is an allowable guess, but NOT a secret answer (AI cannot predict)"
+            else:
+                status = 'invalid_word'
+                msg = f"'{word.upper()}' is not recognized in Wordle dictionary"
+
+            res = {
+                'status': status,
+                'word': word.upper(),
+                'is_5_letters': is_5,
+                'in_solutions': in_solutions,
+                'in_guesses': in_guesses,
+                'can_predict': can_predict,
+                'message': msg
+            }
+
+        elif 'vocabulary' in full_target:
+            other_guesses = [w for w in solver_instance.all_guesses if w not in solver_instance.solution_set]
+            res = {
+                'status': 'ok',
+                'solutions': solver_instance.solutions,
+                'other_guesses': other_guesses
+            }
 
         elif 'random' in full_target:
             word = random.choice(solver_instance.solutions)
